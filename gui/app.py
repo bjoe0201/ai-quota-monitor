@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
 import queue
+import webbrowser
 from datetime import datetime
 
 from config.manager import ConfigManager
@@ -97,7 +98,7 @@ class MainApp(tk.Tk):
         ).pack(anchor="w")
 
         tk.Label(
-            title_text, text="AI Quota Monitor  ·  v1.6.0",
+            title_text, text="AI Quota Monitor  ·  v1.7.0",
             fg=COLORS["subtext"], bg=COLORS["title_bg"],
             font=("Segoe UI", 8),
         ).pack(anchor="w")
@@ -115,6 +116,15 @@ class MainApp(tk.Tk):
             activebackground=COLORS["accent"], activeforeground=COLORS["bg"],
         )
         self.refresh_btn.pack(side="left", padx=(0, 6))
+
+        tk.Button(
+            btn_frame, text="🌐  開啟網頁",
+            command=self._show_open_menu,
+            bg=COLORS["card_border"], fg=COLORS["text"],
+            font=("Segoe UI", 9),
+            relief="flat", padx=12, pady=5, cursor="hand2",
+            activebackground=COLORS["card_bg"], activeforeground=COLORS["text"],
+        ).pack(side="left", padx=(0, 6))
 
         tk.Button(
             btn_frame, text="⚙  設定",
@@ -308,6 +318,36 @@ class MainApp(tk.Tk):
         self.status_label.config(text=f"最後更新: {now}", fg=COLORS["subtext"])
         self.status_dot_lbl.config(fg=COLORS["success"])
         self.refresh_btn.config(state="normal", text="⟳  重新整理")
+
+    _PAGE_URLS = [
+        ("OpenAI 帳單",     "https://platform.openai.com/settings/organization/billing/overview"),
+        ("Claude.ai 用量",  "https://claude.ai/settings/usage"),
+        ("Claude API 帳單", "https://platform.claude.com/settings/billing"),
+        ("GitHub Copilot",  "https://github.com/settings/billing/premium_requests_usage"),
+    ]
+
+    def _show_open_menu(self):
+        menu = tk.Menu(self, tearoff=0,
+                       bg=COLORS["card_bg"], fg=COLORS["text"],
+                       activebackground=COLORS["info"], activeforeground=COLORS["bg"],
+                       font=("Segoe UI", 9), relief="flat", bd=0)
+        for label, url in self._PAGE_URLS:
+            menu.add_command(label=f"  {label}",
+                             command=lambda u=url: webbrowser.open(u))
+        menu.add_separator()
+        menu.add_command(label="  一鍵全開",
+                         command=self._open_all_pages)
+        # Pop up below the button
+        try:
+            x = self.winfo_rootx() + self.winfo_width() - 220
+            y = self.winfo_rooty() + 56
+            menu.tk_popup(x, y)
+        finally:
+            menu.grab_release()
+
+    def _open_all_pages(self):
+        for _, url in self._PAGE_URLS:
+            webbrowser.open(url)
 
     def open_settings(self):
         SettingsDialog(self, self.config_manager)

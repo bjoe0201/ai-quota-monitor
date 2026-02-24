@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AI Quota Monitor Client
 // @namespace    https://github.com/ai-quota-monitor
-// @version      1.6.0
+// @version      1.7.0
 // @description  讀取 AI 服務額度資料並傳送給 AI Quota Monitor 桌面程式
 // @author       AI Quota Monitor
 // @match        https://platform.openai.com/settings/organization/billing/overview
@@ -80,12 +80,19 @@
                 claude_billing: true,
                 github_copilot: true,
             },
+            tab_refresh: {
+                openai_billing: 0,
+                claude_usage: 0,
+                claude_billing: 0,
+                github_copilot: 0,
+            },
         };
         if (!raw) return defaults;
         try {
             const saved = JSON.parse(raw);
             saved.intervals = Object.assign({}, defaults.intervals, saved.intervals || {});
             saved.enabled = Object.assign({}, defaults.enabled, saved.enabled || {});
+            saved.tab_refresh = Object.assign({}, defaults.tab_refresh, saved.tab_refresh || {});
             return Object.assign({}, defaults, saved);
         } catch (_) {
             return defaults;
@@ -107,6 +114,7 @@
         lastData: null,
         errorMsg: '',
         timer: null,
+        tabRefreshTimer: null,
     };
 
     // ─────────────────────────────────────────────
@@ -240,7 +248,7 @@
     panel.id = 'aimon-panel';
     panel.innerHTML = `
         <div class="aimon-header">
-            <span class="aimon-header-title">📊 AI Quota Monitor <span style="font-size:10px; color:#6c7086; font-weight:400;">v1.6.0</span></span>
+            <span class="aimon-header-title">📊 AI Quota Monitor <span style="font-size:10px; color:#6c7086; font-weight:400;">v1.7.0</span></span>
             <button class="aimon-close" id="aimon-close-btn">✕</button>
         </div>
 
@@ -260,6 +268,12 @@
                 <label>每隔幾秒重新擷取</label>
                 <input class="aimon-input" id="aimon-interval-input" type="number" min="10" max="3600"
                     value="${config.intervals[PAGE.key]}" />
+                <span style="font-size:11px;color:#6c7086;">秒</span>
+            </div>
+            <div class="aimon-input-row">
+                <label>自動重新整理頁面 <span style="color:#6c7086;">(0=停用)</span></label>
+                <input class="aimon-input" id="aimon-tab-refresh-input" type="number" min="0" max="600"
+                    value="${config.tab_refresh[PAGE.key]}" />
                 <span style="font-size:11px;color:#6c7086;">秒</span>
             </div>
         </div>
@@ -352,12 +366,15 @@
 
     document.getElementById('aimon-save-btn').addEventListener('click', () => {
         const interval = parseInt(document.getElementById('aimon-interval-input').value, 10) || 60;
+        const tabRefresh = Math.max(0, Math.min(600, parseInt(document.getElementById('aimon-tab-refresh-input').value, 10) || 0));
         const server_url = (document.getElementById('aimon-server-input').value || '').trim()
             || 'http://localhost:7890';
         config.intervals[PAGE.key] = interval;
+        config.tab_refresh[PAGE.key] = tabRefresh;
         config.server_url = server_url;
         saveConfig(config);
         restartTimer();
+        startTabRefreshTimer();
         showToast('✓ 設定已儲存');
     });
 
@@ -449,6 +466,22 @@
     }
 
     // ─────────────────────────────────────────────
+    //  TAB REFRESH TIMER
+    // ─────────────────────────────────────────────
+    function stopTabRefreshTimer() {
+        if (state.tabRefreshTimer) { clearTimeout(state.tabRefreshTimer); state.tabRefreshTimer = null; }
+    }
+
+    function startTabRefreshTimer() {
+        stopTabRefreshTimer();
+        const secs = config.tab_refresh[PAGE.key] || 0;
+        if (secs <= 0) return;
+        state.tabRefreshTimer = setTimeout(() => {
+            location.reload();
+        }, secs * 1000);
+    }
+
+    // ─────────────────────────────────────────────
     //  DOM UTILITIES
     // ─────────────────────────────────────────────
 
@@ -480,8 +513,10 @@
     // ─────────────────────────────────────────────
 
     async function parseOpenAIBilling() {
-        await waitForElement('main, .billing, [data-testid]', 6000);
-        await new Promise(r => setTimeout(r, 1800));
+        // Wait for a billing-specific element; fall back to generic after 10s
+        await waitForElement('[data-testid], .billing-overview, section', 10000);
+        // OpenAI billing page loads numbers via React — wait longer to ensure data is rendered
+        await new Promise(r => setTimeout(r, 3000));
 
         const data = { source: 'openai_billing' };
         const t = document.body.innerText;
@@ -527,6 +562,22 @@
 
         // Auto-recharge
         if (/auto.?recharge\s*(?:is\s*)?on/i.test(t)) data.auto_recharge = true;
+
+        // If only balance_usd was found (possibly $0 placeholder before React render),
+        // retry once after extra delay to ensure full page load
+        const dataKeys = Object.keys(data).filter(k => k !== 'source');
+        if (dataKeys.length <= 1 && data.balance_usd === 0) {
+            await new Promise(r => setTimeout(r, 3000));
+            const t2 = document.body.innerText;
+            const gm2 = t2.match(/([\d,]+(?:\.\d{2,})?)\s*(?:of|\/)\s*([\d,]+(?:\.\d{2,})?)\s*(?:credits?|used)/i);
+            if (gm2) {
+                data.credits_used_usd  = parseFloat(gm2[1].replace(',', ''));
+                data.credits_total_usd = parseFloat(gm2[2].replace(',', ''));
+            }
+            const um2 = t2.match(/\$([\d,]+\.\d{2,4})\s*(?:this\s*month|current\s*period)/i)
+                || t2.match(/(?:this\s*month|current\s*period)[^\$]{0,30}\$([\d,]+\.\d{2,4})/i);
+            if (um2) data.month_usage_usd = parseFloat(um2[1].replace(',', ''));
+        }
 
         return data;
     }
@@ -849,7 +900,8 @@
         window.addEventListener('load', () => setTimeout(runExtraction, _startDelay));
     }
     startTimer();
+    startTabRefreshTimer();
 
-    console.log(`[AI Monitor] 已啟動 — ${PAGE.label} | 間隔: ${config.intervals[PAGE.key]}s | 伺服器: ${config.server_url}`);
+    console.log(`[AI Monitor] 已啟動 — ${PAGE.label} | 間隔: ${config.intervals[PAGE.key]}s | 頁面重刷: ${config.tab_refresh[PAGE.key]}s | 伺服器: ${config.server_url}`);
 
 })();
