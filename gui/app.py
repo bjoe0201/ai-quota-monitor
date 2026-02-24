@@ -98,7 +98,7 @@ class MainApp(tk.Tk):
         ).pack(anchor="w")
 
         tk.Label(
-            title_text, text="AI Quota Monitor  ·  v1.7.0",
+            title_text, text="AI Quota Monitor  ·  v1.8.0",
             fg=COLORS["subtext"], bg=COLORS["title_bg"],
             font=("Segoe UI", 8),
         ).pack(anchor="w")
@@ -138,9 +138,19 @@ class MainApp(tk.Tk):
         # Thin separator
         tk.Frame(self, bg=COLORS["card_border"], height=1).pack(fill="x")
 
+        # ── Status bar (must be packed before scroll area to reserve space) ──
+        tk.Frame(self, bg=COLORS["card_border"], height=1).pack(fill="x", side="bottom")
+        status_bar = tk.Frame(self, bg=COLORS["title_bg"], pady=5)
+        status_bar.pack(fill="x", side="bottom")
+
         # ── Scrollable content ─────────────────────────────────────────────
-        canvas = tk.Canvas(self, bg=COLORS["bg"], highlightthickness=0)
-        scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
+        scroll_container = tk.Frame(self, bg=COLORS["bg"])
+        scroll_container.pack(fill="both", expand=True)
+        scroll_container.grid_rowconfigure(0, weight=1)
+        scroll_container.grid_columnconfigure(0, weight=1)
+
+        canvas = tk.Canvas(scroll_container, bg=COLORS["bg"], highlightthickness=0)
+        scrollbar = ttk.Scrollbar(scroll_container, orient="vertical", command=canvas.yview)
         self.scroll_frame = tk.Frame(canvas, bg=COLORS["bg"])
 
         self.scroll_frame.bind(
@@ -155,19 +165,14 @@ class MainApp(tk.Tk):
         canvas.bind("<Configure>", lambda e: canvas.itemconfig(
             self._canvas_window, width=e.width))
 
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        canvas.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
 
         canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
 
         # Cards grid
         self.cards = {}
         self._build_cards()
-
-        # ── Status bar ─────────────────────────────────────────────────────
-        tk.Frame(self, bg=COLORS["card_border"], height=1).pack(fill="x", side="bottom")
-        status_bar = tk.Frame(self, bg=COLORS["title_bg"], pady=5)
-        status_bar.pack(fill="x", side="bottom")
 
         self.status_dot_lbl = tk.Label(
             status_bar, text="●", fg=COLORS["subtext"],
@@ -198,8 +203,9 @@ class MainApp(tk.Tk):
                 row_frame.pack(fill="x", padx=pad, pady=(pad if i == 0 else pad // 2, 0))
 
             card = ServiceCard(row_frame, service_names[key])
+            gap = pad // 2
             card.pack(side="left", fill="both", expand=True,
-                      padx=(0, pad // 2) if i % 2 == 0 else (pad // 2, 0))
+                      padx=(0, gap) if i % 2 == 0 else (0, 0))
             self.cards[key] = card
 
         tk.Frame(self.scroll_frame, bg=COLORS["bg"], height=pad).pack()

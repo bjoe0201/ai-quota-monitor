@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AI Quota Monitor Client
 // @namespace    https://github.com/ai-quota-monitor
-// @version      1.7.0
+// @version      1.8.0
 // @description  讀取 AI 服務額度資料並傳送給 AI Quota Monitor 桌面程式
 // @author       AI Quota Monitor
 // @match        https://platform.openai.com/settings/organization/billing/overview
@@ -115,6 +115,7 @@
         errorMsg: '',
         timer: null,
         tabRefreshTimer: null,
+        forceSend: false,  // set true when GUI requests refresh, bypasses hasChange check
     };
 
     // ─────────────────────────────────────────────
@@ -248,7 +249,7 @@
     panel.id = 'aimon-panel';
     panel.innerHTML = `
         <div class="aimon-header">
-            <span class="aimon-header-title">📊 AI Quota Monitor <span style="font-size:10px; color:#6c7086; font-weight:400;">v1.7.0</span></span>
+            <span class="aimon-header-title">📊 AI Quota Monitor <span style="font-size:10px; color:#6c7086; font-weight:400;">v1.8.0</span></span>
             <button class="aimon-close" id="aimon-close-btn">✕</button>
         </div>
 
@@ -775,13 +776,14 @@
         parsedData.timestamp = new Date().toISOString();
         parsedData.page_url  = location.href;
 
-        // ── 比較數值是否有變動，只在有變化時才傳送 ──
+        // ── 比較數值是否有變動，只在有變化時才傳送（GUI refresh 強制傳送）──
         const SKIP_KEYS = new Set(['source', 'timestamp', 'page_url']);
         const prev = state.lastData;
-        const hasChange = !prev || Object.keys(parsedData).some(k => {
+        const hasChange = state.forceSend || !prev || Object.keys(parsedData).some(k => {
             if (SKIP_KEYS.has(k)) return false;
             return parsedData[k] !== prev[k];
         });
+        state.forceSend = false;
 
         state.lastData = parsedData;
         updateDataPreview(parsedData);
@@ -878,6 +880,7 @@
                         if (json.refresh && json.seq !== knownSeq) {
                             knownSeq = json.seq;
                             console.log('[AI Monitor] 收到 GUI 重新整理指令，立即擷取');
+                            state.forceSend = true;
                             runExtraction();
                         } else {
                             knownSeq = json.seq;
