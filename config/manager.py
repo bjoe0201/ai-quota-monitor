@@ -10,6 +10,12 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 DEFAULT_CONFIG = {
     "auto_refresh_minutes": 30,
     "server_port": 7890,
+    "widget": {
+        "x": -32768,
+        "y": -32768,
+        "opacity": 0.95,
+        "desktop_level": True,
+    },
     "services": {
         "github_copilot": {
             "enabled": True,
@@ -95,6 +101,8 @@ class ConfigManager:
         config = DEFAULT_CONFIG.copy()
         config["auto_refresh_minutes"] = data.get("auto_refresh_minutes", 30)
         config["server_port"] = data.get("server_port", 7890)
+        if "widget" in data:
+            config["widget"].update(data["widget"])
         for svc_key in DEFAULT_CONFIG["services"]:
             if svc_key in data.get("services", {}):
                 config["services"][svc_key].update(data["services"][svc_key])

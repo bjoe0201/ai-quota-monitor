@@ -1,1 +1,5 @@
 requests>=2.31.0
+
+# 桌面小工具額外依賴（widget_main.py）
+pystray>=0.19.4
+Pillow>=9.0.0
