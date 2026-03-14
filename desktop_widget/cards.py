@@ -220,23 +220,29 @@ class CompactServiceCard(tk.Frame):
                 rows.append({"type": "bar", "label": "每週限額", "percent": pct,
                              "detail": f"重置於: {reset}" if reset else "",
                              "color": self._pct_color(pct)})
-            if data.get("extra_enabled"):
-                rows.append({"type": "divider", "label": "額外用量"})
-                if "extra_percent" in data:
-                    pct = data["extra_percent"]
-                    reset = data.get("extra_resets", "")
-                    rows.append({"type": "bar", "label": "已使用",
-                                 "percent": pct,
-                                 "detail": f"重置於: {reset}" if reset else "",
-                                 "color": self._pct_color(pct)})
-                if "extra_spent" in data:
-                    rows.append(("已花費", f"${data['extra_spent']:.2f}"))
-                if "extra_limit" in data:
-                    rows.append(("每月上限", f"${data['extra_limit']:.2f}"))
-                if "extra_balance" in data:
-                    rows.append(("目前餘額", f"${data['extra_balance']:.2f}", COLORS["green"]))
+            if data.get("extra_enabled") or "extra_spent" in data or "extra_balance" in data:
+                pct   = data.get("extra_percent", 0)
+                reset = data.get("extra_resets", "")
+                spent = data.get("extra_spent")
+                limit = data.get("extra_limit")
+                bal   = data.get("extra_balance")
+                # 進度條（含重置日）
+                rows.append({"type": "bar", "label": "額外用量",
+                             "percent": pct,
+                             "detail": f"重置: {reset}" if reset else "",
+                             "color": self._pct_color(pct)})
+                # 摘要一行：已花費 / 上限 · 餘額
+                parts = []
+                if spent is not None and limit is not None:
+                    parts.append(f"${spent:.2f} / ${limit:.0f}")
+                elif spent is not None:
+                    parts.append(f"已花費 ${spent:.2f}")
+                if bal is not None:
+                    parts.append(f"餘額 ${bal:.2f}")
                 if "auto_reload" in data:
-                    rows.append(("自動儲值", "開啟" if data["auto_reload"] else "關閉"))
+                    parts.append("自動儲值" if data["auto_reload"] else "儲值:關")
+                if parts:
+                    rows.append(("", "  ·  ".join(parts), COLORS["green"]))
 
         elif service_name == "Claude API 帳單 (瀏覽器)":
             self._browser_header(data, rows)

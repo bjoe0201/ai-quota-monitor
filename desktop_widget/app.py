@@ -200,7 +200,7 @@ class DesktopWidget(tk.Tk):
         # 版號（右側）
         tk.Label(
             status_bar, text=_WIDGET_VERSION,
-            fg=COLORS["card_border"], bg=COLORS["title_bg"],
+            fg=COLORS["subtext"], bg=COLORS["title_bg"],
             font=("Segoe UI", 7),
         ).pack(side="right", padx=(0, 4))
 

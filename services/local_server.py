@@ -8,10 +8,34 @@
 - 在背景執行緒中運行，不阻擋主程式
 """
 import json
+import os
 import threading
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Optional
+
+# 記錄檔路徑（同程式執行目錄）
+_LOG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data_log.json")
+_log_lock = threading.Lock()
+
+
+def _append_log(data: dict):
+    """Append a received payload to data_log.json."""
+    try:
+        with _log_lock:
+            try:
+                with open(_LOG_PATH, "r", encoding="utf-8") as f:
+                    log = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                log = []
+            log.append(data)
+            # 只保留最近 500 筆
+            if len(log) > 500:
+                log = log[-500:]
+            with open(_LOG_PATH, "w", encoding="utf-8") as f:
+                json.dump(log, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[AI Monitor] 記錄寫入失敗: {e}")
 
 # ─────────────────────────────────────────────────────────────────
 #  共用資料儲存（由伺服器寫入、由服務類別讀取）
@@ -142,6 +166,7 @@ class _Handler(BaseHTTPRequestHandler):
         with _store_lock:
             DATA_STORE[source] = data
 
+        _append_log(data)
         self._send(200, json.dumps({"ok": True, "source": source}).encode())
 
     def log_message(self, fmt, *args):
