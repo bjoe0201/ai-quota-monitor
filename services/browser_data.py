@@ -8,6 +8,7 @@ Tampermonkey 注入的頁面資料。
   - BrowserClaudeBillingService → claude_billing
   - BrowserGitHubCopilotService → github_copilot
 """
+from __future__ import annotations
 from datetime import datetime
 from . import local_server
 from .base import BaseService, ServiceResult

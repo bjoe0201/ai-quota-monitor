@@ -4,7 +4,7 @@ cd "$(dirname "$0")"
 
 # Find Python
 PYTHON=""
-for candidate in python3 python ~/.pyenv/shims/python3 /usr/local/bin/python3 /opt/homebrew/bin/python3; do
+for candidate in /opt/homebrew/bin/python3.11 /opt/homebrew/bin/python3 /usr/local/bin/python3 ~/.pyenv/shims/python3 python3 python; do
     if command -v "$candidate" &>/dev/null; then
         PYTHON="$candidate"
         break
@@ -16,8 +16,15 @@ if [ -z "$PYTHON" ]; then
     exit 1
 fi
 
+# Prevent duplicate instances
+if pgrep -f "python.*main\.py" &>/dev/null; then
+    osascript -e 'display alert "AI Quota Monitor" message "程式已在執行中。" as warning'
+    exit 0
+fi
+
 # Launch app in background so this Terminal window can close
-"$PYTHON" main.py &
+# Subshell + nohup fully detaches Python from this Terminal session
+( nohup "$PYTHON" main.py > /tmp/ai-quota-monitor.log 2>&1 & )
 
 # Close the Terminal window that opened due to double-click
 sleep 0.8

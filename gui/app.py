@@ -531,7 +531,9 @@ class SettingsDialog(tk.Toplevel):
 
         # Server status indicator
         from services import local_server as _ls
-        status_text = f"本地伺服器: {'\u5df2啟動 \u2713' if _ls.is_running() else '未啟動'}"
+        _srv_on = "已啟動 ✓"
+        _srv_off = "未啟動"
+        status_text = f"本地伺服器: {_srv_on if _ls.is_running() else _srv_off}"
         self._browser_status_lbl = tk.Label(
             frame,
             text=status_text,

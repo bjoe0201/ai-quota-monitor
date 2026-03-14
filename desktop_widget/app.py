@@ -111,8 +111,9 @@ class DesktopWidget(tk.Tk):
         # 無邊框
         self.wm_overrideredirect(True)
 
-        # 不出現在工作列
-        self.wm_attributes("-toolwindow", True)
+        # 不出現在工作列（Windows 限定）
+        if sys.platform == "win32":
+            self.wm_attributes("-toolwindow", True)
 
         # 微透明
         opacity = self.config_data.get("widget", {}).get("opacity", 0.95)
@@ -314,9 +315,15 @@ class DesktopWidget(tk.Tk):
         menu.add_command(label="  ✕ 離開", command=self.quit_app)
 
         try:
+            # macOS + wm_overrideredirect 的已知問題：需暫時恢復邊框才能讓選單項目可點
+            if sys.platform == "darwin":
+                self.wm_overrideredirect(False)
+                self.update()
             menu.tk_popup(event.x_root, event.y_root)
         finally:
             menu.grab_release()
+            if sys.platform == "darwin":
+                self.wm_overrideredirect(True)
 
     def _open_all_pages(self):
         for _, url in _PAGE_URLS:

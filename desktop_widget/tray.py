@@ -3,6 +3,7 @@
 使用 pystray 建立系統匣圖示與右鍵選單。
 若 pystray 或 Pillow 未安裝則靜默略過（小工具仍可正常使用）。
 """
+from __future__ import annotations
 import threading
 import subprocess
 import sys

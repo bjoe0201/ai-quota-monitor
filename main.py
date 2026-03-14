@@ -11,11 +11,11 @@ else:
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from gui.app import MainApp
+from desktop_widget.app import DesktopWidget
 
 
 def main():
-    app = MainApp()
+    app = DesktopWidget()
     app.mainloop()
 
 
