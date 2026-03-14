@@ -58,7 +58,7 @@ SERVICE_NAMES = {
     "browser_github_copilot": "GitHub Copilot (瀏覽器)",
 }
 
-_WIDGET_VERSION = "v1.8.0"
+_WIDGET_VERSION = "v1.8.1"
 
 _PAGE_URLS = [
     ("OpenAI 帳單",     "https://platform.openai.com/settings/organization/billing/overview"),
