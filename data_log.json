@@ -1,8 +1,8 @@
-[
-  {
+{
+  "claude_usage": {
     "source": "claude_usage",
-    "session_percent": 22,
-    "session_reset": "1 hr 23 min",
+    "session_percent": 26,
+    "session_reset": "1 hr 4 min",
     "weekly_percent": 25,
     "extra_spent": 1.25,
     "extra_resets": "Apr 1",
@@ -11,11 +11,11 @@
     "extra_percent": 6,
     "auto_reload": false,
     "extra_enabled": false,
-    "timestamp": "2026-03-14T16:36:50.627Z",
+    "timestamp": "2026-03-14T16:55:38.292Z",
     "page_url": "https://claude.ai/settings/usage",
-    "received_at": "2026-03-15T00:36:50.742827"
+    "received_at": "2026-03-15T00:55:38.407823"
   },
-  {
+  "github_copilot": {
     "source": "github_copilot",
     "included_consumed": 737.64,
     "included_total": 1500,
@@ -23,138 +23,15 @@
     "billed_usd": 0,
     "resets_in_days": 18,
     "next_billing": "2026年4月1日",
-    "timestamp": "2026-03-14T16:37:28.084Z",
+    "timestamp": "2026-03-14T16:55:39.280Z",
     "page_url": "https://github.com/settings/billing/premium_requests_usage?period=3&group=7&customer=14285628&chart_selection=2",
-    "received_at": "2026-03-15T00:37:28.196557"
+    "received_at": "2026-03-15T00:55:39.390014"
   },
-  {
-    "source": "claude_usage",
-    "session_percent": 22,
-    "session_reset": "1 hr 22 min",
-    "weekly_percent": 25,
-    "extra_spent": 1.25,
-    "extra_resets": "Apr 1",
-    "extra_limit": 20,
-    "extra_balance": 8.74,
-    "extra_percent": 6,
-    "auto_reload": false,
-    "extra_enabled": false,
-    "timestamp": "2026-03-14T16:37:28.281Z",
-    "page_url": "https://claude.ai/settings/usage",
-    "received_at": "2026-03-15T00:37:28.388319"
-  },
-  {
+  "claude_billing": {
     "source": "claude_billing",
     "balance_usd": 1.38,
-    "timestamp": "2026-03-14T16:37:29.279Z",
+    "timestamp": "2026-03-14T16:55:40.291Z",
     "page_url": "https://platform.claude.com/settings/billing",
-    "received_at": "2026-03-15T00:37:29.397897"
-  },
-  {
-    "source": "openai_billing",
-    "balance_usd": 34.78,
-    "timestamp": "2026-03-14T16:37:29.282Z",
-    "page_url": "https://platform.openai.com/settings/organization/billing/overview",
-    "received_at": "2026-03-15T00:37:29.412072"
-  },
-  {
-    "source": "claude_usage",
-    "session_percent": 24,
-    "session_reset": "1 hr 20 min",
-    "weekly_percent": 25,
-    "extra_spent": 1.25,
-    "extra_resets": "Apr 1",
-    "extra_limit": 20,
-    "extra_balance": 8.74,
-    "extra_percent": 6,
-    "auto_reload": false,
-    "extra_enabled": false,
-    "timestamp": "2026-03-14T16:39:14.283Z",
-    "page_url": "https://claude.ai/settings/usage",
-    "received_at": "2026-03-15T00:39:14.396830"
-  },
-  {
-    "source": "claude_usage",
-    "session_percent": 25,
-    "session_reset": "1 hr 18 min",
-    "weekly_percent": 25,
-    "extra_spent": 1.25,
-    "extra_resets": "Apr 1",
-    "extra_limit": 20,
-    "extra_balance": 8.74,
-    "extra_percent": 6,
-    "auto_reload": false,
-    "extra_enabled": false,
-    "timestamp": "2026-03-14T16:41:05.283Z",
-    "page_url": "https://claude.ai/settings/usage",
-    "received_at": "2026-03-15T00:41:05.389413"
-  },
-  {
-    "source": "github_copilot",
-    "included_consumed": 737.64,
-    "included_total": 1500,
-    "included_percent": 49.2,
-    "billed_usd": 0,
-    "resets_in_days": 18,
-    "next_billing": "2026年4月1日",
-    "timestamp": "2026-03-14T16:41:05.443Z",
-    "page_url": "https://github.com/settings/billing/premium_requests_usage?period=3&group=7&customer=14285628&chart_selection=2",
-    "received_at": "2026-03-15T00:41:05.554120"
-  },
-  {
-    "source": "claude_billing",
-    "balance_usd": 1.38,
-    "timestamp": "2026-03-14T16:41:06.301Z",
-    "page_url": "https://platform.claude.com/settings/billing",
-    "received_at": "2026-03-15T00:41:06.409217"
-  },
-  {
-    "source": "openai_billing",
-    "balance_usd": 34.78,
-    "timestamp": "2026-03-14T16:41:07.292Z",
-    "page_url": "https://platform.openai.com/settings/organization/billing/overview",
-    "received_at": "2026-03-15T00:41:07.392286"
-  },
-  {
-    "source": "claude_usage",
-    "session_percent": 25,
-    "session_reset": "1 hr 8 min",
-    "weekly_percent": 25,
-    "extra_spent": 1.25,
-    "extra_resets": "Apr 1",
-    "extra_limit": 20,
-    "extra_balance": 8.74,
-    "extra_percent": 6,
-    "auto_reload": false,
-    "extra_enabled": false,
-    "timestamp": "2026-03-14T16:51:09.293Z",
-    "page_url": "https://claude.ai/settings/usage",
-    "received_at": "2026-03-15T00:51:09.405258"
-  },
-  {
-    "source": "claude_billing",
-    "balance_usd": 1.38,
-    "timestamp": "2026-03-14T16:51:10.288Z",
-    "page_url": "https://platform.claude.com/settings/billing",
-    "received_at": "2026-03-15T00:51:10.408417"
-  },
-  {
-    "source": "github_copilot",
-    "included_consumed": 737.64,
-    "included_total": 1500,
-    "included_percent": 49.2,
-    "billed_usd": 0,
-    "resets_in_days": 18,
-    "next_billing": "2026年4月1日",
-    "timestamp": "2026-03-14T16:51:11.291Z",
-    "page_url": "https://github.com/settings/billing/premium_requests_usage?period=3&group=7&customer=14285628&chart_selection=2",
-    "received_at": "2026-03-15T00:51:11.404740"
-  },
-  {
-    "source": "openai_billing",
-    "balance_usd": 0,
-    "timestamp": "2026-03-14T16:51:14.285Z",
-    "page_url": "https://platform.openai.com/settings/organization/billing/overview",
-    "received_at": "2026-03-15T00:51:14.400791"
+    "received_at": "2026-03-15T00:55:40.408849"
   }
-]
+}

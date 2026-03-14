@@ -20,18 +20,18 @@ _log_lock = threading.Lock()
 
 
 def _append_log(data: dict):
-    """Append a received payload to data_log.json."""
+    """每個 source 只保留最新一筆，寫入 data_log.json。"""
     try:
         with _log_lock:
             try:
                 with open(_LOG_PATH, "r", encoding="utf-8") as f:
                     log = json.load(f)
+                    if not isinstance(log, dict):
+                        log = {}
             except (FileNotFoundError, json.JSONDecodeError):
-                log = []
-            log.append(data)
-            # 只保留最近 500 筆
-            if len(log) > 500:
-                log = log[-500:]
+                log = {}
+            source = data.get("source", "unknown")
+            log[source] = data
             with open(_LOG_PATH, "w", encoding="utf-8") as f:
                 json.dump(log, f, ensure_ascii=False, indent=2)
     except Exception as e:
