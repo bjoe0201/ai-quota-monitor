@@ -22,12 +22,5 @@ if pgrep -f "python.*main\.py" &>/dev/null; then
     exit 0
 fi
 
-# Launch app in background so this Terminal window can close
-# Subshell + nohup fully detaches Python from this Terminal session
+# Launch app — fully detach from this Terminal session
 ( nohup "$PYTHON" main.py > /tmp/ai-quota-monitor.log 2>&1 & )
-
-# Close the Terminal window that opened due to double-click
-sleep 0.8
-osascript -e 'tell application "Terminal"
-    close (every window whose name contains "start.command")
-end tell' &>/dev/null || true

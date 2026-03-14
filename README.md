@@ -1,4 +1,4 @@
-# AI 額度監控 · v1.9.0
+# AI 額度監控 · v1.8.2
 
 一個跨平台（Windows / macOS）桌面應用程式，搭配 Tampermonkey 瀏覽器腳本，即時監控各 AI 服務的使用額度與費用。
 另附輕量**桌面小工具**版本，可常駐桌面顯示翻頁時鐘與即時額度。
@@ -10,7 +10,7 @@
 | 服務 | 擷取來源 | 查看項目 |
 |------|----------|----------|
 | **OpenAI 帳單** | platform.openai.com | 帳戶餘額、Credits 使用量、月消費 |
-| **Claude.ai 用量** | claude.ai | 工作階段配額、每週配額、額外用量 |
+| **Claude.ai 用量** | claude.ai | 工作階段配額、每週配額、**額外用量（已花費／上限／餘額／自動儲值）** |
 | **Claude API 帳單** | platform.claude.com | 帳戶餘額、方案資訊、本月用量 |
 | **GitHub Copilot** | github.com | Premium Requests 用量、重置日期 |
 
@@ -39,9 +39,26 @@
 
 ### 1. 安裝桌面應用程式
 
+#### macOS
+
+> **需求**：Python 3.11+（含 Tcl/Tk 8.6）。系統內建 Python 3.9 不相容，請先安裝：
+> ```bash
+> brew install python@3.11 python-tk@3.11
+> ```
+
 ```bash
 git clone https://github.com/your-repo/ai-quota-monitor.git
-cd ai-quota-monitor/ai-quota-monitor
+cd ai-quota-monitor
+pip3.11 install -r requirements.txt
+```
+
+雙擊 `start.command` 即可啟動（首次需在終端機執行 `chmod +x start.command`）。
+
+#### Windows
+
+```bash
+git clone https://github.com/your-repo/ai-quota-monitor.git
+cd ai-quota-monitor
 pip install -r requirements.txt
 python main.py
 ```
@@ -70,22 +87,19 @@ python main.py
 
 ## 桌面小工具（Desktop Widget）
 
-輕量版常駐小工具，可顯示於桌面背景層，與主視窗共用同一資料來源（port 7890）。
+輕量版常駐小工具，為預設啟動畫面，與主視窗共用同一資料來源（port 7890）。
 
 ### 啟動方式
 
-```bash
-pip install pystray Pillow   # 首次需安裝額外依賴
-python widget_main.py
-```
-
-或直接雙擊啟動腳本：
-
-| 檔案 | 說明 |
+| 平台 | 方式 |
 |------|------|
-| `start_widget.bat` | Windows 雙擊啟動（無 CMD 視窗） |
-| `start_widget.ps1` | PowerShell 啟動，自動搜尋 Python |
-| `start_widget.vbs` | 由 .bat 呼叫，實際無視窗執行 |
+| **macOS** | 雙擊 `start.command` |
+| **Windows** | 雙擊 `start_widget.bat` |
+
+```bash
+# 直接執行
+python main.py
+```
 
 ### 功能特色
 
@@ -212,17 +226,15 @@ pyinstaller widget_build.spec --clean
 
 ```
 ai-quota-monitor/
-├── main.py                    # 主程式進入點
-├── widget_main.py             # 桌面小工具進入點
-├── ai-monitor-client.js       # Tampermonkey 瀏覽器腳本
-├── start.bat / start.ps1      # 主程式啟動腳本
-├── start_widget.bat           # 小工具啟動腳本（雙擊，無視窗）
-├── start_widget.ps1           # 小工具啟動腳本（PowerShell）
-├── start_widget.vbs           # 小工具啟動腳本（無 CMD 視窗）
-├── build.spec                 # 主程式 PyInstaller 設定
-├── widget_build.spec          # 小工具 PyInstaller 設定
+├── main.py                    # 主程式進入點（啟動桌面小工具）
+├── ai-monitor-client.js       # Tampermonkey 瀏覽器腳本（v1.8.2）
+├── start.command              # macOS 雙擊啟動腳本
+├── start.bat / start.ps1      # Windows 啟動腳本
+├── start_widget.bat           # Windows 小工具啟動腳本（無 CMD 視窗）
+├── build.spec                 # PyInstaller 設定
+├── data_log.json              # 最新一筆各來源資料記錄（除錯用）
 ├── gui/
-│   ├── app.py                 # 主視窗、卡片佈局、排程
+│   ├── app.py                 # 舊版主視窗（保留備用）
 │   └── widgets.py             # ServiceCard、ProgressBar 元件
 ├── desktop_widget/
 │   ├── app.py                 # 桌面小工具主視窗
@@ -270,8 +282,8 @@ chmod 600 ~/.config/ai-quota-monitor/config.json
 
 | 版本 | 主要變更 |
 |------|----------|
-| **v1.9.0** | 新增桌面小工具（翻頁時鐘 + 精簡卡片 + 系統匣）；位置記憶含多螢幕支援；新增 `start_widget` 啟動腳本 |
-| **v1.8.0** | 修正 GUI「重新整理」無法觸發 JS 回報的問題；修正 GUI 卡片右側邊界 |
+| **v1.8.2** | macOS 完整支援（Python 3.9 相容、Tk 8.6、右鍵選單修正）；桌面小工具設為預設啟動；Claude.ai 額外用量顯示額外花費／上限／餘額／自動儲值；JS 版號自動遞增（git pre-commit hook）；接收記錄寫入 `data_log.json` |
+| **v1.8.0** | 新增桌面小工具（翻頁時鐘 + 精簡卡片 + 系統匣）；修正 GUI「重新整理」無法觸發 JS 回報的問題 |
 | **v1.7.0** | JS 新增「自動重新整理頁面」設定；GUI 新增「🌐 開啟網頁」下拉選單 |
 | **v1.6.0** | GUI 按「重新整理」即時通知 JS 重新擷取；修正卡片寬度；版號同步 |
 | **v1.5.0** | GUI 美化（Catppuccin 主題、Canvas 進度條、雙欄卡片）；版號顯示 |

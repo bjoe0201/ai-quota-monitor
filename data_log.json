@@ -33,5 +33,12 @@
     "timestamp": "2026-03-14T16:55:40.291Z",
     "page_url": "https://platform.claude.com/settings/billing",
     "received_at": "2026-03-15T00:55:40.408849"
+  },
+  "openai_billing": {
+    "source": "openai_billing",
+    "balance_usd": 34.78,
+    "timestamp": "2026-03-14T17:13:55.296Z",
+    "page_url": "https://platform.openai.com/settings/organization/billing/overview",
+    "received_at": "2026-03-15T01:13:55.412973"
   }
 }
