@@ -43,10 +43,8 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
     [],
+    exclude_binaries=True,  # onedir mode: binaries go to COLLECT
     name='AI額度監控-桌面小工具',
     debug=False,
     bootloader_ignore_signals=False,
@@ -60,5 +58,31 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    # icon='icon.ico',
+    # icon='icon.icns',
 )
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='AI額度監控-桌面小工具',
+)
+
+# macOS app bundle
+import sys
+if sys.platform == 'darwin':
+    app = BUNDLE(
+        coll,
+        name='AI額度監控.app',
+        icon=None,
+        bundle_identifier='com.aimonitor.widget',
+        info_plist={
+            'NSHighResolutionCapable': True,
+            'CFBundleShortVersionString': '1.8.2',
+            'LSUIElement': False,
+        },
+    )

@@ -11,9 +11,16 @@ pip install -r requirements.txt
 # Run the application
 python main.py
 
-# Build standalone executable (Windows .exe / macOS .app)
-pyinstaller build.spec
-# Output: dist/AI額度監控.exe  (or dist/AI額度監控.app on macOS)
+# Build standalone executable
+# Windows (.exe)
+pyinstaller widget_build.spec
+# Output: dist/AI額度監控-桌面小工具.exe
+
+# macOS (.app) — must use Homebrew Python 3.11 (system Python 3.9 uses Tcl/Tk 8.5 which crashes on macOS 12+)
+/opt/homebrew/bin/python3.11 -m PyInstaller widget_build.spec
+# Output: dist/AI額度監控.app
+# After building on macOS, remove quarantine:
+xattr -dr com.apple.quarantine dist/AI額度監控.app
 ```
 
 There is no test suite in this project.
@@ -35,7 +42,9 @@ This is a Python 3.11+ tkinter desktop application that monitors AI service quot
 
 ### Key Modules
 
-- **`main.py`** — Entry point; handles PyInstaller `sys._MEIPASS` path fixup, then starts `MainApp`
+- **`main.py`** — Entry point; handles PyInstaller `sys._MEIPASS` path fixup, then starts `DesktopWidget`
+- **`widget_main.py`** — Alternative entry point that also starts `SystemTray` alongside `DesktopWidget`; used by `widget_build.spec`
+- **`widget_build.spec`** — PyInstaller spec for macOS/Windows packaging; uses **onedir mode** with `COLLECT` + `BUNDLE` (onefile mode crashes on macOS due to security restrictions)
 - **`gui/app.py`** — `MainApp(tk.Tk)` owns the window, cards, refresh logic, and settings dialog. `SERVICES` list at the top defines active services. `BROWSER_SERVICE_SOURCES` maps service keys to `DATA_STORE` source keys
 - **`gui/widgets.py`** — `ServiceCard` widget with `update_result()`, `set_loading()`. `_format_data()` contains hardcoded display logic branched by `service_name` string. `COLORS` dict defines the dark theme (Catppuccin-inspired)
 - **`services/base.py`** — `BaseService` ABC with `fetch(config) → ServiceResult`. `ServiceResult` is a dataclass with `service_name`, `success`, `data: dict`, `error`
@@ -43,6 +52,7 @@ This is a Python 3.11+ tkinter desktop application that monitors AI service quot
 - **`services/browser_data.py`** — Four `BaseService` subclasses (one per monitored page) that read from `local_server.DATA_STORE`. Also stamps `updated_at` and adds a stale warning if data is >10 minutes old
 - **`config/manager.py`** — `ConfigManager` reads/writes `~/.config/ai-quota-monitor/config.json`. Sensitive fields (tokens, API keys) are Base64-encoded on disk (not encrypted). `load()` merges saved config with `DEFAULT_CONFIG` so new keys always have defaults
 - **`ai-monitor-client.js`** — Tampermonkey userscript. Runs page-specific scrapers (`parseOpenAIBilling`, `parseClaudeUsage`, `parseClaudeBilling`, `parseGitHubCopilot`) and POSTs to the local server. Has an in-page floating UI (📊 button) for status and settings
+- **`desktop_widget/tray.py`** — `SystemTray` uses `pystray`. On macOS, must call `icon.run_detached()` (not `icon.run()` in a thread) because AppKit requires the main thread, which tkinter already owns
 
 ### Inactive Service Classes
 

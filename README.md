@@ -125,10 +125,27 @@ python main.py
 
 ### 建置獨立執行檔
 
+#### Windows
+
 ```bash
 pip install pyinstaller
 pyinstaller widget_build.spec --clean
 # 輸出：dist/AI額度監控-桌面小工具.exe
+```
+
+#### macOS
+
+> **必須使用 Homebrew Python 3.11**（系統內建 Python 3.9 連結 Tcl/Tk 8.5，在 macOS 12+ 執行時會崩潰）：
+> ```bash
+> brew install python@3.11 python-tk@3.11
+> /opt/homebrew/bin/python3.11 -m pip install pyinstaller requests pystray pillow psutil
+> ```
+
+```bash
+/opt/homebrew/bin/python3.11 -m PyInstaller widget_build.spec --clean
+# 移除 Gatekeeper 隔離屬性
+xattr -dr com.apple.quarantine dist/AI額度監控.app
+# 輸出：dist/AI額度監控.app（可拖至 Dock 使用）
 ```
 
 ---
@@ -204,7 +221,10 @@ pyinstaller widget_build.spec --clean
 > 已改用 `GM_openInTab` API 解決瀏覽器彈出視窗封鎖問題（v1.4.0 起修正）。
 
 **Q: macOS 上無法開啟 .app 檔案？**
-> 在 Finder 中對 .app 按右鍵 > 開啟，或執行：`xattr -cr dist/AI額度監控.app`
+> 在 Finder 中對 .app 按右鍵 > 開啟，或執行：`xattr -dr com.apple.quarantine dist/AI額度監控.app`
+
+**Q: macOS 上 .app 開啟後立即崩潰（Abort trap / NSUpdateCycleInitialize）？**
+> 必須使用 Homebrew Python 3.11 打包。系統 Python 3.9 使用 Tcl/Tk 8.5（macOS 12+ 已損壞），Homebrew Python 3.11 使用 Tcl/Tk 8.6。另外 `widget_build.spec` 使用 onedir 模式（非 onefile），因為 macOS 安全機制不允許 .app bundle 在執行時解壓縮至 /tmp。
 
 **Q: 桌面小工具重開後位置跑掉？**
 > 若發生螢幕解析度變更或拔除副螢幕，偵測到位置超出虛擬桌面範圍時會自動歸位至主螢幕右下角。
@@ -282,6 +302,7 @@ chmod 600 ~/.config/ai-quota-monitor/config.json
 
 | 版本 | 主要變更 |
 |------|----------|
+| **v1.8.3** | macOS .app 打包修正：改用 onedir 模式（onefile 在 macOS 安全機制下崩潰）、改用 Homebrew Python 3.11（Tcl/Tk 8.6，修正系統 Python 3.9 的 Tk 8.5 崩潰）、`pystray` 改用 `run_detached()`（避免 `NSUpdateCycleInitialize off main thread` 崩潰） |
 | **v1.8.2** | macOS 完整支援（Python 3.9 相容、Tk 8.6、右鍵選單修正）；桌面小工具設為預設啟動；Claude.ai 額外用量顯示額外花費／上限／餘額／自動儲值；JS 版號自動遞增（git pre-commit hook）；接收記錄寫入 `data_log.json` |
 | **v1.8.0** | 新增桌面小工具（翻頁時鐘 + 精簡卡片 + 系統匣）；修正 GUI「重新整理」無法觸發 JS 回報的問題 |
 | **v1.7.0** | JS 新增「自動重新整理頁面」設定；GUI 新增「🌐 開啟網頁」下拉選單 |

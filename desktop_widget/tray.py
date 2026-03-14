@@ -68,8 +68,7 @@ class SystemTray:
             "AI 額度監控 桌面小工具",
             menu,
         )
-        self._thread = threading.Thread(target=self._icon.run, daemon=True)
-        self._thread.start()
+        self._icon.run_detached()
 
     def stop(self):
         if self._icon:
