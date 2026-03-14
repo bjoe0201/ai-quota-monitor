@@ -222,14 +222,21 @@ class CompactServiceCard(tk.Frame):
                              "color": self._pct_color(pct)})
             if data.get("extra_enabled"):
                 rows.append({"type": "divider", "label": "額外用量"})
+                if "extra_percent" in data:
+                    pct = data["extra_percent"]
+                    reset = data.get("extra_resets", "")
+                    rows.append({"type": "bar", "label": "已使用",
+                                 "percent": pct,
+                                 "detail": f"重置於: {reset}" if reset else "",
+                                 "color": self._pct_color(pct)})
                 if "extra_spent" in data:
                     rows.append(("已花費", f"${data['extra_spent']:.2f}"))
                 if "extra_limit" in data:
                     rows.append(("每月上限", f"${data['extra_limit']:.2f}"))
                 if "extra_balance" in data:
                     rows.append(("目前餘額", f"${data['extra_balance']:.2f}", COLORS["green"]))
-                if data.get("extra_resets"):
-                    rows.append(("重置日期", data["extra_resets"]))
+                if "auto_reload" in data:
+                    rows.append(("自動儲值", "開啟" if data["auto_reload"] else "關閉"))
 
         elif service_name == "Claude API 帳單 (瀏覽器)":
             self._browser_header(data, rows)

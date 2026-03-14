@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AI Quota Monitor Client
 // @namespace    https://github.com/ai-quota-monitor
-// @version      1.8.0
+// @version      1.8.1
 // @description  讀取 AI 服務額度資料並傳送給 AI Quota Monitor 桌面程式
 // @author       AI Quota Monitor
 // @match        https://platform.openai.com/settings/organization/billing/overview
@@ -249,7 +249,7 @@
     panel.id = 'aimon-panel';
     panel.innerHTML = `
         <div class="aimon-header">
-            <span class="aimon-header-title">📊 AI Quota Monitor <span style="font-size:10px; color:#6c7086; font-weight:400;">v1.8.0</span></span>
+            <span class="aimon-header-title">📊 AI Quota Monitor <span style="font-size:10px; color:#6c7086; font-weight:400;">v1.8.1</span></span>
             <button class="aimon-close" id="aimon-close-btn">✕</button>
         </div>
 
@@ -625,6 +625,14 @@
             const balance = extra.match(/\$([\d.]+)\s*[\n\r ]*Current\s+balance/i)
                 || extra.match(/Current\s+balance[^\$]{0,20}\$([\d.]+)/i);
             if (balance) data.extra_balance = parseFloat(balance[1]);
+
+            // Extra usage percent (e.g. "6% used")
+            const ep = extra.match(/(\d+)%\s*used/i);
+            if (ep) data.extra_percent = parseInt(ep[1]);
+
+            // Auto-reload status
+            if (/auto.?reload\s+on/i.test(extra)) data.auto_reload = true;
+            else if (/auto.?reload\s+off/i.test(extra)) data.auto_reload = false;
 
             // Toggle for extra usage enabled
             const toggle = document.querySelector('[role="switch"][aria-checked="true"]');
