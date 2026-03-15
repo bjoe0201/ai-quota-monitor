@@ -4,9 +4,9 @@
 // @version      1.8.2
 // @description  讀取 AI 服務額度資料並傳送給 AI Quota Monitor 桌面程式
 // @author       AI Quota Monitor
-// @match        https://platform.openai.com/settings/organization/billing/overview
-// @match        https://claude.ai/settings/usage
-// @match        https://platform.claude.com/settings/billing
+// @match        https://platform.openai.com/settings/organization/billing/overview*
+// @match        https://claude.ai/settings/usage*
+// @match        https://platform.claude.com/settings/billing*
 // @match        https://github.com/settings/billing/premium_requests_usage*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
