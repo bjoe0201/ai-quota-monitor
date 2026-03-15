@@ -302,6 +302,7 @@ chmod 600 ~/.config/ai-quota-monitor/config.json
 
 | 版本 | 主要變更 |
 |------|----------|
+| **v1.8.4** | macOS 一鍵開啟／關閉網頁改用 AppleScript，解決重複 spawn Chrome process 問題；新增 `--openurl` 啟動參數，執行 app 時自動開啟四個額度網頁；app 關閉時自動關閉所有 oclaw 網頁 |
 | **v1.8.3** | 一鍵開啟所有額度網頁至同一個新 Chrome 視窗（帶 `?oclaw=1` 參數）；新增「一鍵關閉所有網頁」功能（透過 Win32 `WM_CLOSE` 關閉追蹤的視窗）；Tampermonkey `@match` 加萬用字元支援任意 query string |
 | **v1.8.2** | macOS 完整支援（Python 3.9 相容、Tk 8.6、右鍵選單修正）；桌面小工具設為預設啟動；Claude.ai 額外用量顯示額外花費／上限／餘額／自動儲值；JS 版號自動遞增（git pre-commit hook）；接收記錄寫入 `data_log.json` |
 | **v1.8.0** | 新增桌面小工具（翻頁時鐘 + 精簡卡片 + 系統匣）；修正 GUI「重新整理」無法觸發 JS 回報的問題 |

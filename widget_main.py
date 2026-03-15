@@ -38,6 +38,11 @@ def main():
         print("[Widget] pystray 未安裝，系統匣圖示不可用。\n"
               "可執行: pip install pystray Pillow")
 
+    # --openurl：啟動時自動開啟四個額度網頁
+    if "--openurl" in sys.argv:
+        from desktop_widget.app import _open_all_in_new_window
+        app.after(2000, _open_all_in_new_window)
+
     try:
         app.mainloop()
     finally:

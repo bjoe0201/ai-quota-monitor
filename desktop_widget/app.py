@@ -58,7 +58,7 @@ SERVICE_NAMES = {
     "browser_github_copilot": "GitHub Copilot (瀏覽器)",
 }
 
-_WIDGET_VERSION = "v1.8.3"
+_WIDGET_VERSION = "v1.8.4"
 
 _PAGE_URLS = [
     ("OpenAI 帳單",     "https://platform.openai.com/settings/organization/billing/overview?oclaw=1"),
@@ -110,6 +110,24 @@ def _get_chrome_hwnds() -> set:
 def _open_all_in_new_window():
     """Open all four URLs in a single new Chrome window, track new HWNDs."""
     urls = [url for _, url in _PAGE_URLS]
+    if sys.platform == "darwin":
+        _close_oclaw_window()
+        # Use AppleScript to open URLs in a new Chrome window within the
+        # existing Chrome instance — avoids spawning duplicate Chrome processes.
+        tab_cmds = f'set URL of active tab to "{urls[0]}"\n'
+        for u in urls[1:]:
+            tab_cmds += f'        make new tab with properties {{URL:"{u}"}}\n'
+        script = (
+            'tell application "Google Chrome"\n'
+            '    activate\n'
+            '    make new window\n'
+            '    tell front window\n'
+            f'        {tab_cmds}'
+            '    end tell\n'
+            'end tell'
+        )
+        subprocess.Popen(["osascript", "-e", script])
+        return
     chrome = _find_chrome()
     if not chrome:
         for url in urls:
@@ -133,15 +151,34 @@ def _open_all_in_new_window():
 
 
 def _close_oclaw_window():
-    """Send WM_CLOSE to all tracked Chrome windows."""
-    if sys.platform != "win32" or not _oclaw_hwnds:
-        return
-    import ctypes
-    u32 = ctypes.windll.user32
-    WM_CLOSE = 0x0010
-    for hwnd in list(_oclaw_hwnds):
-        u32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
-    _oclaw_hwnds.clear()
+    """Close tracked Chrome windows (Win32) or oclaw-tagged tabs (macOS)."""
+    if sys.platform == "win32":
+        if not _oclaw_hwnds:
+            return
+        import ctypes
+        u32 = ctypes.windll.user32
+        WM_CLOSE = 0x0010
+        for hwnd in list(_oclaw_hwnds):
+            u32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
+        _oclaw_hwnds.clear()
+    elif sys.platform == "darwin":
+        script = (
+            'tell application "Google Chrome"\n'
+            '    set windowsToClose to {}\n'
+            '    repeat with w in every window\n'
+            '        repeat with t in every tab of w\n'
+            '            if URL of t contains "oclaw=1" then\n'
+            '                set end of windowsToClose to w\n'
+            '                exit repeat\n'
+            '            end if\n'
+            '        end repeat\n'
+            '    end repeat\n'
+            '    repeat with w in windowsToClose\n'
+            '        close w\n'
+            '    end repeat\n'
+            'end tell'
+        )
+        subprocess.run(["osascript", "-e", script])
 
 
 class DesktopWidget(tk.Tk):
@@ -167,6 +204,7 @@ class DesktopWidget(tk.Tk):
         self._setup_window()
         self._build_ui()
         self._position_window()
+        self.protocol("WM_DELETE_WINDOW", self.quit_app)
 
         # 初始化卡片狀態
         self.after(300, self._init_browser_cards)
@@ -547,6 +585,7 @@ class DesktopWidget(tk.Tk):
                 self.after(100, self._sink_to_bottom)
 
     def quit_app(self):
+        _close_oclaw_window()
         self._save_position()
         local_server.stop()
         self.destroy()

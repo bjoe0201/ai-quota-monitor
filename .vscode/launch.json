@@ -58,6 +58,43 @@
                 "PYTHONPATH": "${workspaceFolder}"
             }
         },
+        // ── macOS (Homebrew Python 3.11) ──────────────────────────────────
+        {
+            "name": "▶ [macOS] 主視窗 (main.py)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "python": "/opt/homebrew/bin/python3.11",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "▶ [macOS] 桌面小工具 (widget_main.py)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/widget_main.py",
+            "python": "/opt/homebrew/bin/python3.11",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "🔍 [macOS] 桌面小工具 偵錯 (顯示所有例外)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/widget_main.py",
+            "python": "/opt/homebrew/bin/python3.11",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
         // ── 通用 ──────────────────────────────────────────────────────────
         {
             "name": "偵錯目前檔案",

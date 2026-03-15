@@ -393,15 +393,34 @@ class MainApp(tk.Tk):
         threading.Thread(target=track, daemon=True).start()
 
     def _close_oclaw_window(self):
-        """Send WM_CLOSE to all tracked Chrome windows."""
-        if sys.platform != "win32" or not MainApp._oclaw_hwnds:
-            return
-        import ctypes
-        u32 = ctypes.windll.user32
-        WM_CLOSE = 0x0010
-        for hwnd in list(MainApp._oclaw_hwnds):
-            u32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
-        MainApp._oclaw_hwnds.clear()
+        """Close tracked Chrome windows (Win32) or oclaw-tagged tabs (macOS)."""
+        if sys.platform == "win32":
+            if not MainApp._oclaw_hwnds:
+                return
+            import ctypes
+            u32 = ctypes.windll.user32
+            WM_CLOSE = 0x0010
+            for hwnd in list(MainApp._oclaw_hwnds):
+                u32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
+            MainApp._oclaw_hwnds.clear()
+        elif sys.platform == "darwin":
+            script = (
+                'tell application "Google Chrome"\n'
+                '    set windowsToClose to {}\n'
+                '    repeat with w in every window\n'
+                '        repeat with t in every tab of w\n'
+                '            if URL of t contains "oclaw=1" then\n'
+                '                set end of windowsToClose to w\n'
+                '                exit repeat\n'
+                '            end if\n'
+                '        end repeat\n'
+                '    end repeat\n'
+                '    repeat with w in windowsToClose\n'
+                '        close w\n'
+                '    end repeat\n'
+                'end tell'
+            )
+            subprocess.run(["osascript", "-e", script])
 
     def _show_open_menu(self):
         menu = tk.Menu(self, tearoff=0,
