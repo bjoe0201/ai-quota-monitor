@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AI Quota Monitor Client
 // @namespace    https://github.com/ai-quota-monitor
-// @version      1.8.2
+// @version      1.8.3
 // @description  讀取 AI 服務額度資料並傳送給 AI Quota Monitor 桌面程式
 // @author       AI Quota Monitor
 // @match        https://platform.openai.com/settings/organization/billing/overview*
@@ -249,7 +249,7 @@
     panel.id = 'aimon-panel';
     panel.innerHTML = `
         <div class="aimon-header">
-            <span class="aimon-header-title">📊 AI Quota Monitor <span style="font-size:10px; color:#6c7086; font-weight:400;">v1.8.2</span></span>
+            <span class="aimon-header-title">📊 AI Quota Monitor <span style="font-size:10px; color:#6c7086; font-weight:400;">v1.8.3</span></span>
             <button class="aimon-close" id="aimon-close-btn">✕</button>
         </div>
 

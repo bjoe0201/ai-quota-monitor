@@ -3,6 +3,8 @@ from tkinter import ttk, messagebox
 import threading
 import queue
 import webbrowser
+import subprocess
+import sys
 from datetime import datetime
 
 from config.manager import ConfigManager
@@ -98,7 +100,7 @@ class MainApp(tk.Tk):
         ).pack(anchor="w")
 
         tk.Label(
-            title_text, text="AI Quota Monitor  ·  v1.8.2",
+            title_text, text="AI Quota Monitor  ·  v1.8.3",
             fg=COLORS["subtext"], bg=COLORS["title_bg"],
             font=("Segoe UI", 8),
         ).pack(anchor="w")
@@ -326,11 +328,80 @@ class MainApp(tk.Tk):
         self.refresh_btn.config(state="normal", text="⟳  重新整理")
 
     _PAGE_URLS = [
-        ("OpenAI 帳單",     "https://platform.openai.com/settings/organization/billing/overview"),
-        ("Claude.ai 用量",  "https://claude.ai/settings/usage"),
-        ("Claude API 帳單", "https://platform.claude.com/settings/billing"),
-        ("GitHub Copilot",  "https://github.com/settings/billing/premium_requests_usage"),
+        ("OpenAI 帳單",     "https://platform.openai.com/settings/organization/billing/overview?oclaw=1"),
+        ("Claude.ai 用量",  "https://claude.ai/settings/usage?oclaw=1"),
+        ("Claude API 帳單", "https://platform.claude.com/settings/billing?oclaw=1"),
+        ("GitHub Copilot",  "https://github.com/settings/billing/premium_requests_usage?oclaw=1"),
     ]
+
+    _oclaw_hwnds: set = set()  # 追蹤「一鍵全開」開啟的 Chrome 視窗 HWND
+
+    def _find_chrome(self) -> str | None:
+        import shutil, os
+        if sys.platform == "win32":
+            candidates = [
+                r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            ]
+        elif sys.platform == "darwin":
+            candidates = ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"]
+        else:
+            candidates = ["google-chrome", "chromium-browser", "chromium"]
+        for c in candidates:
+            if os.path.isfile(c) or shutil.which(c):
+                return c
+        return None
+
+    def _get_chrome_hwnds(self) -> set:
+        if sys.platform != "win32":
+            return set()
+        import ctypes, ctypes.wintypes
+        u32 = ctypes.windll.user32
+        hwnds = []
+        buf = ctypes.create_unicode_buffer(512)
+        def cb(hwnd, _):
+            u32.GetClassNameW(hwnd, buf, 512)
+            if buf.value == "Chrome_WidgetWin_1" and u32.IsWindowVisible(hwnd):
+                u32.GetWindowTextW(hwnd, buf, 512)
+                if buf.value:
+                    hwnds.append(hwnd)
+            return True
+        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
+        u32.EnumWindows(WNDENUMPROC(cb), 0)
+        return set(hwnds)
+
+    def _open_all_in_new_window(self):
+        """Open all four URLs in a single new Chrome window, track new HWNDs."""
+        urls = [url for _, url in self._PAGE_URLS]
+        chrome = self._find_chrome()
+        if not chrome:
+            for url in urls:
+                webbrowser.open(url)
+            return
+        self._close_oclaw_window()
+        before = self._get_chrome_hwnds()
+        subprocess.Popen([chrome, "--new-window"] + urls)
+        def track():
+            import time
+            for _ in range(20):  # up to 5s
+                time.sleep(0.25)
+                after = self._get_chrome_hwnds()
+                new = after - before
+                if new:
+                    MainApp._oclaw_hwnds.update(new)
+                    return
+        threading.Thread(target=track, daemon=True).start()
+
+    def _close_oclaw_window(self):
+        """Send WM_CLOSE to all tracked Chrome windows."""
+        if sys.platform != "win32" or not MainApp._oclaw_hwnds:
+            return
+        import ctypes
+        u32 = ctypes.windll.user32
+        WM_CLOSE = 0x0010
+        for hwnd in list(MainApp._oclaw_hwnds):
+            u32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
+        MainApp._oclaw_hwnds.clear()
 
     def _show_open_menu(self):
         menu = tk.Menu(self, tearoff=0,
@@ -342,7 +413,9 @@ class MainApp(tk.Tk):
                              command=lambda u=url: webbrowser.open(u))
         menu.add_separator()
         menu.add_command(label="  一鍵全開",
-                         command=self._open_all_pages)
+                         command=self._open_all_in_new_window)
+        menu.add_command(label="  一鍵關閉所有網頁",
+                         command=self._close_oclaw_window)
         # Pop up below the button
         try:
             x = self.winfo_rootx() + self.winfo_width() - 220
@@ -352,8 +425,7 @@ class MainApp(tk.Tk):
             menu.grab_release()
 
     def _open_all_pages(self):
-        for _, url in self._PAGE_URLS:
-            webbrowser.open(url)
+        self._open_all_in_new_window()
 
     def open_settings(self):
         SettingsDialog(self, self.config_manager)

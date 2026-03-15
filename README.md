@@ -1,4 +1,4 @@
-# AI 額度監控 · v1.8.2
+# AI 額度監控 · v1.8.3
 
 一個跨平台（Windows / macOS）桌面應用程式，搭配 Tampermonkey 瀏覽器腳本，即時監控各 AI 服務的使用額度與費用。
 另附輕量**桌面小工具**版本，可常駐桌面顯示翻頁時鐘與即時額度。
@@ -247,7 +247,7 @@ xattr -dr com.apple.quarantine dist/AI額度監控.app
 ```
 ai-quota-monitor/
 ├── main.py                    # 主程式進入點（啟動桌面小工具）
-├── ai-monitor-client.js       # Tampermonkey 瀏覽器腳本（v1.8.2）
+├── ai-monitor-client.js       # Tampermonkey 瀏覽器腳本（v1.8.3）
 ├── start.command              # macOS 雙擊啟動腳本
 ├── start.bat / start.ps1      # Windows 啟動腳本
 ├── start_widget.bat           # Windows 小工具啟動腳本（無 CMD 視窗）
@@ -302,7 +302,7 @@ chmod 600 ~/.config/ai-quota-monitor/config.json
 
 | 版本 | 主要變更 |
 |------|----------|
-| **v1.8.3** | macOS .app 打包修正：改用 onedir 模式（onefile 在 macOS 安全機制下崩潰）、改用 Homebrew Python 3.11（Tcl/Tk 8.6，修正系統 Python 3.9 的 Tk 8.5 崩潰）、`pystray` 改用 `run_detached()`（避免 `NSUpdateCycleInitialize off main thread` 崩潰） |
+| **v1.8.3** | 一鍵開啟所有額度網頁至同一個新 Chrome 視窗（帶 `?oclaw=1` 參數）；新增「一鍵關閉所有網頁」功能（透過 Win32 `WM_CLOSE` 關閉追蹤的視窗）；Tampermonkey `@match` 加萬用字元支援任意 query string |
 | **v1.8.2** | macOS 完整支援（Python 3.9 相容、Tk 8.6、右鍵選單修正）；桌面小工具設為預設啟動；Claude.ai 額外用量顯示額外花費／上限／餘額／自動儲值；JS 版號自動遞增（git pre-commit hook）；接收記錄寫入 `data_log.json` |
 | **v1.8.0** | 新增桌面小工具（翻頁時鐘 + 精簡卡片 + 系統匣）；修正 GUI「重新整理」無法觸發 JS 回報的問題 |
 | **v1.7.0** | JS 新增「自動重新整理頁面」設定；GUI 新增「🌐 開啟網頁」下拉選單 |
