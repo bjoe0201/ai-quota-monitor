@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AI Quota Monitor Client
 // @namespace    https://github.com/ai-quota-monitor
-// @version      2.1.0
+// @version      2.3.0
 // @description  讀取 AI 服務額度資料並傳送給 AI Quota Monitor 桌面程式
 // @author       AI Quota Monitor
 // @match        https://platform.openai.com/settings/organization/billing/overview*
@@ -536,19 +536,27 @@
     }
 
     /**
-     * 讀取頁面文字前先 yield 主執行緒，讓瀏覽器刷新待渲染的幀。
-     * 只讀取主要內容區域（main / #root），跳過 DataDog RUM、Intercom 等
-     * 第三方注入的大量隱藏 DOM 節點，避免讀取整個 React DOM 樹（可能超過 10MB）
-     * 造成主執行緒同步阻塞。
+     * 對 main 區域做一次 innerHTML 快照，複製到獨立的 detached DOM 節點。
+     * 後續所有 querySelector / textContent 操作都在離線副本上執行，
+     * 完全不觸碰 live DOM，不觸發 layout reflow，不與 React 渲染競爭。
+     * innerText 在 detached DOM 無法使用（需要 layout），一律改用 textContent。
      */
-    async function readPageText() {
+    async function takePageSnapshot() {
         await new Promise(r => setTimeout(r, 0));
+        const t0 = performance.now();
         const container = document.querySelector('main')
             || document.querySelector('[role="main"]')
             || document.querySelector('#root')
             || document.querySelector('#__next')
             || document.body;
-        return container.textContent;
+        const t1 = performance.now();
+        const snap = document.createElement('div');
+        snap.innerHTML = container.innerHTML;  // 將 live DOM 複製一次
+        const t2 = performance.now();
+        const textLen = snap.textContent.length;
+        const t3 = performance.now();
+        console.log(`[AI Monitor ℹ️] snapshot: querySelector=${(t1-t0).toFixed(1)}ms | innerHTML複製=${(t2-t1).toFixed(1)}ms | textContent長度=${textLen}字元 (${(t3-t2).toFixed(1)}ms)`);
+        return snap;
     }
 
     /** Extract text block between two marker strings. */
@@ -565,13 +573,22 @@
     // ─────────────────────────────────────────────
 
     async function parseOpenAIBilling() {
+        console.log('[AI Monitor ℹ️] parseOpenAIBilling 開始');
+        let t0 = performance.now();
         // Wait for a billing-specific element; fall back to generic after 10s
         await waitForElement('[data-testid], .billing-overview, section', 10000);
+        console.log(`[AI Monitor ℹ️] waitForElement 完成 (${(performance.now()-t0).toFixed(0)}ms)`);
         // OpenAI billing page loads numbers via React — wait longer to ensure data is rendered
+        t0 = performance.now();
         await new Promise(r => setTimeout(r, 3000));
+        console.log(`[AI Monitor ℹ️] React 等待完成 (${(performance.now()-t0).toFixed(0)}ms)`);
 
         const data = { source: 'openai_billing' };
-        const t = await readPageText();
+        t0 = performance.now();
+        const snap = await takePageSnapshot();
+        const t = snap.textContent;
+        console.log(`[AI Monitor ℹ️] snapshot+textContent 完成 (${(performance.now()-t0).toFixed(0)}ms)`);
+        t0 = performance.now();
 
         // Credit balance
         for (const p of [
@@ -614,13 +631,15 @@
 
         // Auto-recharge
         if (/auto.?recharge\s*(?:is\s*)?on/i.test(t)) data.auto_recharge = true;
+        console.log(`[AI Monitor ℹ️] regex 解析完成 (${(performance.now()-t0).toFixed(0)}ms)，決彗: ${JSON.stringify(data)}`);
 
         // If only balance_usd was found (possibly $0 placeholder before React render),
         // retry once after extra delay to ensure full page load
         const dataKeys = Object.keys(data).filter(k => k !== 'source');
         if (dataKeys.length <= 1 && data.balance_usd === 0) {
             await new Promise(r => setTimeout(r, 3000));
-            const t2 = await readPageText();
+            const snap2 = await takePageSnapshot();
+            const t2 = snap2.textContent;
             const gm2 = t2.match(/([\d,]+(?:\.\d{2,})?)\s*(?:of|\/)\s*([\d,]+(?:\.\d{2,})?)\s*(?:credits?|used)/i);
             if (gm2) {
                 data.credits_used_usd  = parseFloat(gm2[1].replace(',', ''));
@@ -635,11 +654,20 @@
     }
 
     async function parseClaudeUsage() {
+        console.log('[AI Monitor ℹ️] parseClaudeUsage 開始');
+        let t0 = performance.now();
         await waitForElement('main, h1, [data-testid]', 6000);
+        console.log(`[AI Monitor ℹ️] waitForElement 完成 (${(performance.now()-t0).toFixed(0)}ms)`);
+        t0 = performance.now();
         await new Promise(r => setTimeout(r, 1800));
+        console.log(`[AI Monitor ℹ️] React 等待完成 (${(performance.now()-t0).toFixed(0)}ms)`);
 
         const data = { source: 'claude_usage' };
-        const t = await readPageText();
+        t0 = performance.now();
+        const snap = await takePageSnapshot();
+        const t = snap.textContent;
+        console.log(`[AI Monitor ℹ️] snapshot+textContent 完成 (${(performance.now()-t0).toFixed(0)}ms)`);
+        t0 = performance.now();
 
         // ── Current session ──
         const sess = findSectionText(t, 'Current session', 'Weekly limits')
@@ -700,16 +728,26 @@
             if (matches[0]) data.session_reset = matches[0][1].trim();
             if (matches[1]) data.weekly_reset   = matches[1][1].trim();
         }
+        console.log(`[AI Monitor ℹ️] regex 解析完成 (${(performance.now()-t0).toFixed(0)}ms)，決彗: ${JSON.stringify(data)}`);
 
         return data;
     }
 
     async function parseClaudeBilling() {
+        console.log('[AI Monitor ℹ️] parseClaudeBilling 開始');
+        let t0 = performance.now();
         await waitForElement('[data-testid="credit-balance"], main, [data-testid]', 6000);
+        console.log(`[AI Monitor ℹ️] waitForElement 完成 (${(performance.now()-t0).toFixed(0)}ms)`);
+        t0 = performance.now();
         await new Promise(r => setTimeout(r, 1800));
+        console.log(`[AI Monitor ℹ️] React 等待完成 (${(performance.now()-t0).toFixed(0)}ms)`);
 
         const data = { source: 'claude_billing' };
-        const t = await readPageText();
+        t0 = performance.now();
+        const snap = await takePageSnapshot();
+        const t = snap.textContent;
+        console.log(`[AI Monitor ℹ️] snapshot+textContent 完成 (${(performance.now()-t0).toFixed(0)}ms)`);
+        t0 = performance.now();
 
         // Plan
         const pm = t.match(/(?:Current\s+)?[Pp]lan[:\s]+([^\n\r]{1,40})/i)
@@ -731,9 +769,9 @@
 
         // Balance — prefer DOM element [data-testid="credit-balance"] which contains
         // the "Remaining Balance" card (e.g. US$1.38), fall back to text regex.
-        const creditBalanceCard = document.querySelector('[data-testid="credit-balance"]');
+        const creditBalanceCard = snap.querySelector('[data-testid="credit-balance"]');
         if (creditBalanceCard) {
-            const balText = creditBalanceCard.innerText || '';
+            const balText = creditBalanceCard.textContent || '';
             const bm = balText.match(/US\$\s*([\d,]+(?:\.\d+)?)/i)
                 || balText.match(/\$([\d,]+(?:\.\d+)?)/);
             if (bm) data.balance_usd = parseFloat(bm[1].replace(/,/g, ''));
@@ -748,19 +786,31 @@
         // Spend limit
         const sl = t.match(/(?:spend|credit)\s+limit[^\$]{0,30}\$([\d.]+)/i);
         if (sl) data.spend_limit_usd = parseFloat(sl[1]);
+        console.log(`[AI Monitor ℹ️] regex 解析完成 (${(performance.now()-t0).toFixed(0)}ms)，決彗: ${JSON.stringify(data)}`);
 
         return data;
     }
 
     async function parseGitHubCopilot() {
+        console.log('[AI Monitor ℹ️] parseGitHubCopilot 開始');
+        let t0 = performance.now();
         // 等待 included-premium-requests-card 出現（React 頁面）
         await waitForElement('[data-testid="included-premium-requests-card"]', 10000);
+        console.log(`[AI Monitor ℹ️] waitForElement 完成 (${(performance.now()-t0).toFixed(0)}ms)`);
+        t0 = performance.now();
         await new Promise(r => setTimeout(r, 800));
+        console.log(`[AI Monitor ℹ️] 等待完成 (${(performance.now()-t0).toFixed(0)}ms)`);
 
         const data = { source: 'github_copilot' };
 
+        // ── 對 main 區域做快照，後續 querySelector / textContent 全在離線副本執行 ──
+        t0 = performance.now();
+        const snap = await takePageSnapshot();
+        console.log(`[AI Monitor ℹ️] snapshot 完成 (${(performance.now()-t0).toFixed(0)}ms)`);
+        t0 = performance.now();
+
         // ── Included premium requests consumed (726.59) ──
-        const inclCard = document.querySelector('[data-testid="included-premium-requests-card"]');
+        const inclCard = snap.querySelector('[data-testid="included-premium-requests-card"]');
         if (inclCard) {
             // 大數字：class 含 cardValue
             const valEl = inclCard.querySelector('[class*="cardValue"]');
@@ -782,7 +832,7 @@
         }
 
         // ── Billed premium requests ($0.00) ──
-        const billedCard = document.querySelector('[data-testid="total-billed-amount-card"]');
+        const billedCard = snap.querySelector('[data-testid="total-billed-amount-card"]');
         if (billedCard) {
             const billedEl = billedCard.querySelector('[class*="cardValue"]');
             if (billedEl) {
@@ -792,7 +842,7 @@
         }
 
         // ── 重置倒數（文字："resets in 5 days"）──
-        const t = await readPageText();
+        const t = snap.textContent;
         const rm = t.match(/resets?\s+in\s+(\d+)\s*days?/i)
             || t.match(/(\d+)\s*days?\s+(?:until\s+)?reset/i);
         if (rm) data.resets_in_days = parseInt(rm[1]);
@@ -800,6 +850,7 @@
         // ── 下次重置日（文字："resets in 5 days on 2026年3月1日"）──
         const nb = t.match(/resets?\s+in\s+\d+\s*days?\s+on\s+([^\n.]+)/i);
         if (nb) data.next_billing = nb[1].trim();
+        console.log(`[AI Monitor ℹ️] 解析完成 (${(performance.now()-t0).toFixed(0)}ms)，決彗: ${JSON.stringify(data)}`);
 
         return data;
     }
