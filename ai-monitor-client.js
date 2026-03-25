@@ -1,18 +1,20 @@
 // ==UserScript==
 // @name         AI Quota Monitor Client
 // @namespace    https://github.com/ai-quota-monitor
-// @version      1.8.3
+// @version      2.1.0
 // @description  讀取 AI 服務額度資料並傳送給 AI Quota Monitor 桌面程式
 // @author       AI Quota Monitor
 // @match        https://platform.openai.com/settings/organization/billing/overview*
 // @match        https://claude.ai/settings/usage*
 // @match        https://platform.claude.com/settings/billing*
 // @match        https://github.com/settings/billing/premium_requests_usage*
+// @run-at       document-idle
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_addStyle
 // @grant        GM_openInTab
+// @grant        GM_info
 // @connect      localhost
 // @connect      127.0.0.1
 // ==/UserScript==
@@ -143,7 +145,7 @@
             transition: background 0.3s;
         }
         #aimon-btn .aimon-dot.idle     { background: #6c7086; }
-        #aimon-btn .aimon-dot.running  { background: #f9e2af; animation: aimon-pulse 1s infinite; }
+        #aimon-btn .aimon-dot.running  { background: #f9e2af; animation: aimon-pulse 1s infinite; will-change: opacity; }
         #aimon-btn .aimon-dot.success  { background: #a6e3a1; }
         #aimon-btn .aimon-dot.error    { background: #f38ba8; }
         #aimon-btn .aimon-dot.stopped  { background: #6c7086; }
@@ -190,7 +192,7 @@
             width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
         }
         .aimon-status-dot.idle     { background: #6c7086; }
-        .aimon-status-dot.running  { background: #f9e2af; animation: aimon-pulse 1s infinite; }
+        .aimon-status-dot.running  { background: #f9e2af; animation: aimon-pulse 1s infinite; will-change: opacity; }
         .aimon-status-dot.success  { background: #a6e3a1; }
         .aimon-status-dot.error    { background: #f38ba8; }
         .aimon-status-dot.stopped  { background: #6c7086; }
@@ -249,7 +251,7 @@
     panel.id = 'aimon-panel';
     panel.innerHTML = `
         <div class="aimon-header">
-            <span class="aimon-header-title">📊 AI Quota Monitor <span style="font-size:10px; color:#6c7086; font-weight:400;">v1.8.3</span></span>
+            <span class="aimon-header-title">📊 AI Quota Monitor <span style="font-size:10px; color:#6c7086; font-weight:400;">v${GM_info.script.version}</span></span>
             <button class="aimon-close" id="aimon-close-btn">✕</button>
         </div>
 
@@ -467,6 +469,27 @@
     }
 
     // ─────────────────────────────────────────────
+    //  USER ACTIVITY TRACKING（用於 tab 重載 idle 偵測）
+    // ─────────────────────────────────────────────
+    let _lastInteractionTime = Date.now();
+    (function trackUserActivity() {
+        // mousemove 每秒幾十次，加 throttle 限制每 1 秒最多更新一次
+        let _moveThrottle = false;
+        const onMove = () => {
+            if (_moveThrottle) return;
+            _moveThrottle = true;
+            _lastInteractionTime = Date.now();
+            setTimeout(() => { _moveThrottle = false; }, 1000);
+        };
+        const update = () => { _lastInteractionTime = Date.now(); };
+        document.addEventListener('mousemove',  onMove,  { passive: true });
+        document.addEventListener('keydown',    update,  { passive: true });
+        document.addEventListener('mousedown',  update,  { passive: true });
+        document.addEventListener('scroll',     update,  { passive: true });
+        document.addEventListener('touchstart', update,  { passive: true });
+    })();
+
+    // ─────────────────────────────────────────────
     //  TAB REFRESH TIMER
     // ─────────────────────────────────────────────
     function stopTabRefreshTimer() {
@@ -477,9 +500,21 @@
         stopTabRefreshTimer();
         const secs = config.tab_refresh[PAGE.key] || 0;
         if (secs <= 0) return;
-        state.tabRefreshTimer = setTimeout(() => {
-            location.reload();
-        }, secs * 1000);
+        // 加入最多 5 秒隨機 jitter，避免多個 tab 同時重載
+        const jitter = Math.random() * 5000;
+
+        state.tabRefreshTimer = setTimeout(function waitForIdleAndReload() {
+            state.tabRefreshTimer = null;
+            // tab 在背景，或使用者已停止互動超過 30 秒 → 立即重載（使用者感受不到卡頓）
+            const isHidden = document.hidden;
+            const isIdle   = Date.now() - _lastInteractionTime > 30000;
+            if (isHidden || isIdle) {
+                location.reload();
+            } else {
+                // 使用者仍在操作，每 5 秒重新檢查一次，直到閒置為止
+                state.tabRefreshTimer = setTimeout(waitForIdleAndReload, 5000);
+            }
+        }, secs * 1000 + jitter);
     }
 
     // ─────────────────────────────────────────────
@@ -491,13 +526,29 @@
         return new Promise((resolve) => {
             const el = document.querySelector(selector);
             if (el) { resolve(el); return; }
-            const ob = new MutationObserver(() => {
+            const deadline = Date.now() + maxMs;
+            const iv = setInterval(() => {
                 const found = document.querySelector(selector);
-                if (found) { ob.disconnect(); resolve(found); }
-            });
-            ob.observe(document.body, { childList: true, subtree: true });
-            setTimeout(() => { ob.disconnect(); resolve(null); }, maxMs);
+                if (found) { clearInterval(iv); resolve(found); return; }
+                if (Date.now() >= deadline) { clearInterval(iv); resolve(null); }
+            }, 300);
         });
+    }
+
+    /**
+     * 讀取頁面文字前先 yield 主執行緒，讓瀏覽器刷新待渲染的幀。
+     * 只讀取主要內容區域（main / #root），跳過 DataDog RUM、Intercom 等
+     * 第三方注入的大量隱藏 DOM 節點，避免讀取整個 React DOM 樹（可能超過 10MB）
+     * 造成主執行緒同步阻塞。
+     */
+    async function readPageText() {
+        await new Promise(r => setTimeout(r, 0));
+        const container = document.querySelector('main')
+            || document.querySelector('[role="main"]')
+            || document.querySelector('#root')
+            || document.querySelector('#__next')
+            || document.body;
+        return container.textContent;
     }
 
     /** Extract text block between two marker strings. */
@@ -520,7 +571,7 @@
         await new Promise(r => setTimeout(r, 3000));
 
         const data = { source: 'openai_billing' };
-        const t = document.body.innerText;
+        const t = await readPageText();
 
         // Credit balance
         for (const p of [
@@ -569,7 +620,7 @@
         const dataKeys = Object.keys(data).filter(k => k !== 'source');
         if (dataKeys.length <= 1 && data.balance_usd === 0) {
             await new Promise(r => setTimeout(r, 3000));
-            const t2 = document.body.innerText;
+            const t2 = await readPageText();
             const gm2 = t2.match(/([\d,]+(?:\.\d{2,})?)\s*(?:of|\/)\s*([\d,]+(?:\.\d{2,})?)\s*(?:credits?|used)/i);
             if (gm2) {
                 data.credits_used_usd  = parseFloat(gm2[1].replace(',', ''));
@@ -588,7 +639,7 @@
         await new Promise(r => setTimeout(r, 1800));
 
         const data = { source: 'claude_usage' };
-        const t = document.body.innerText;
+        const t = await readPageText();
 
         // ── Current session ──
         const sess = findSectionText(t, 'Current session', 'Weekly limits')
@@ -658,7 +709,7 @@
         await new Promise(r => setTimeout(r, 1800));
 
         const data = { source: 'claude_billing' };
-        const t = document.body.innerText;
+        const t = await readPageText();
 
         // Plan
         const pm = t.match(/(?:Current\s+)?[Pp]lan[:\s]+([^\n\r]{1,40})/i)
@@ -741,7 +792,7 @@
         }
 
         // ── 重置倒數（文字："resets in 5 days"）──
-        const t = document.body.innerText;
+        const t = await readPageText();
         const rm = t.match(/resets?\s+in\s+(\d+)\s*days?/i)
             || t.match(/(\d+)\s*days?\s+(?:until\s+)?reset/i);
         if (rm) data.resets_in_days = parseInt(rm[1]);
@@ -756,13 +807,20 @@
     // ─────────────────────────────────────────────
     //  MAIN EXTRACTION ENTRY
     // ─────────────────────────────────────────────
+    let _extractionInProgress = false;
+
     async function runExtraction() {
+        if (_extractionInProgress) {
+            console.log('[AI Monitor] 上次擷取仍在進行中，略過');
+            return;
+        }
         if (state.status === 'stopped') return;
         // Guard: only run when still on the expected page (SPA navigation may have left)
         if (!isOnExpectedPage()) {
             console.log('[AI Monitor] 跳轉到其他頁面，略過擷取 (path:', location.pathname, ')');
             return;
         }
+        _extractionInProgress = true;
         setStatus('running');
 
         let parsedData;
@@ -775,10 +833,12 @@
                 default: throw new Error('Unknown page: ' + PAGE.key);
             }
         } catch (err) {
+            _extractionInProgress = false;
             setStatus('error', err.message);
             console.error('[AI Monitor]', err);
             return;
         }
+        _extractionInProgress = false;
 
         parsedData.timestamp = new Date().toISOString();
         parsedData.page_url  = location.href;
@@ -846,19 +906,17 @@
     // ─────────────────────────────────────────────
     //  SPA NAVIGATION DETECTION
     // ─────────────────────────────────────────────
+    // 每 2 秒輕量輪詢 URL，完全不監聽 DOM 變動，不干擾頁面運作
     let _lastHref = location.href;
-    const _navObserver = new MutationObserver(() => {
-        if (location.href !== _lastHref) {
-            _lastHref = location.href;
-            // Only re-run extraction if we're still on the expected page path
-            if (isOnExpectedPage()) {
-                setTimeout(runExtraction, 2500);
-            } else {
-                console.log('[AI Monitor] SPA 跳轉離開目標頁面，停止擷取');
-            }
+    setInterval(() => {
+        if (location.href === _lastHref) return;
+        _lastHref = location.href;
+        if (isOnExpectedPage()) {
+            setTimeout(runExtraction, 2500);
+        } else {
+            console.log('[AI Monitor] SPA 跳轉離開目標頁面，停止擷取');
         }
-    });
-    _navObserver.observe(document.body, { childList: true, subtree: true });
+    }, 2000);
 
     // ─────────────────────────────────────────────
     //  STARTUP
@@ -871,6 +929,8 @@
     (function startPollLoop() {
         let knownSeq = 0;
         const POLL_INTERVAL = 3000; // ms
+        const POLL_MAX_BACKOFF = 60000; // ms — 伺服器找不到時最大間隔
+        let _pollErrCount = 0;
 
         function poll() {
             if (state.status === 'stopped') {
@@ -882,6 +942,7 @@
                 url: `${config.server_url}/poll?seq=${knownSeq}`,
                 timeout: 4000,
                 onload(res) {
+                    _pollErrCount = 0;
                     try {
                         const json = JSON.parse(res.responseText);
                         if (json.refresh && json.seq !== knownSeq) {
@@ -895,7 +956,11 @@
                     } catch (_) {}
                     setTimeout(poll, POLL_INTERVAL);
                 },
-                onerror()  { setTimeout(poll, POLL_INTERVAL); },
+                onerror() {
+                    _pollErrCount++;
+                    const delay = Math.min(POLL_INTERVAL * Math.pow(2, _pollErrCount - 1), POLL_MAX_BACKOFF);
+                    setTimeout(poll, delay);
+                },
                 ontimeout(){ setTimeout(poll, POLL_INTERVAL); },
             });
         }
@@ -903,15 +968,20 @@
         setTimeout(poll, POLL_INTERVAL);
     })();
 
-    const _startDelay = 2500;
-    if (document.readyState === 'complete') {
-        setTimeout(runExtraction, _startDelay);
-    } else {
-        window.addEventListener('load', () => setTimeout(runExtraction, _startDelay));
+    // 等頁面完全載入後，再等 2.5 秒讓 React 完成渲染，才開始擷取
+    function _startWork() {
+        console.log(`[AI Monitor] 已啟動 — ${PAGE.label} | 間隔: ${config.intervals[PAGE.key]}s | 頁面重刷: ${config.tab_refresh[PAGE.key]}s | 伺服器: ${config.server_url}`);
+        startTabRefreshTimer();
+        setTimeout(() => {
+            runExtraction();
+            startTimer();
+        }, 2500);
     }
-    startTimer();
-    startTabRefreshTimer();
 
-    console.log(`[AI Monitor] 已啟動 — ${PAGE.label} | 間隔: ${config.intervals[PAGE.key]}s | 頁面重刷: ${config.tab_refresh[PAGE.key]}s | 伺服器: ${config.server_url}`);
+    if (document.readyState === 'complete') {
+        _startWork();
+    } else {
+        window.addEventListener('load', _startWork);
+    }
 
 })();
