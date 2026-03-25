@@ -1,71 +1,71 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+本檔案提供 Claude Code（claude.ai/code）在此專案中工作時的指引。
 
-## Commands
+## 指令
 
 ```bash
-# Install dependencies
+# 安裝依賴套件
 pip install -r requirements.txt
 
-# Run the application
+# 執行應用程式
 python main.py
 
-# Build standalone executable
+# 打包獨立執行檔
 # Windows (.exe)
 pyinstaller widget_build.spec
-# Output: dist/AI額度監控-桌面小工具.exe
+# 輸出：dist/AI額度監控-桌面小工具.exe
 
-# macOS (.app) — must use Homebrew Python 3.11 (system Python 3.9 uses Tcl/Tk 8.5 which crashes on macOS 12+)
+# macOS (.app) — 必須使用 Homebrew Python 3.11（系統內建 Python 3.9 的 Tcl/Tk 8.5 在 macOS 12+ 上會崩潰）
 /opt/homebrew/bin/python3.11 -m PyInstaller widget_build.spec
-# Output: dist/AI額度監控.app
-# After building on macOS, remove quarantine:
+# 輸出：dist/AI額度監控.app
+# macOS 打包後需移除隔離屬性：
 xattr -dr com.apple.quarantine dist/AI額度監控.app
 ```
 
-There is no test suite in this project.
+本專案沒有測試套件。
 
-## Architecture
+## 架構
 
-This is a Python 3.11+ tkinter desktop application that monitors AI service quota usage. The app has two data acquisition paths: a **browser data path** (currently active) and an **API path** (service classes exist but are not wired into `gui/app.py`).
+這是一個 Python 3.11+ tkinter 桌面應用程式，用於監控 AI 服務的額度使用量。應用程式有兩條資料取得路徑：**瀏覽器資料路徑**（目前啟用中）和 **API 路徑**（服務類別已存在，但尚未接入 `gui/app.py`）。
 
-### Data Flow
+### 資料流程
 
-**Browser path (active):**
-1. User installs `ai-monitor-client.js` as a Tampermonkey userscript
-2. The script scrapes pages (OpenAI billing, claude.ai usage, platform.claude.com billing, GitHub Copilot settings) and POSTs JSON to `http://localhost:7890/update`
-3. `services/local_server.py` receives the POST and stores it in the module-level `DATA_STORE` dict keyed by `source` field
-4. `MainApp._poll_browser_live()` runs every 1.5s, checks `DATA_STORE` for new timestamps, and spawns threads to call `BrowserXxxService.fetch()` which reads from `DATA_STORE`
-5. Results are put on `_result_queue`; `_poll_queue()` runs every 200ms on the main thread to call `ServiceCard.update_result()`
+**瀏覽器路徑（啟用中）：**
+1. 使用者將 `ai-monitor-client.js` 安裝為 Tampermonkey 使用者腳本
+2. 腳本抓取頁面資料（OpenAI 帳單、claude.ai 用量、platform.claude.com 帳單、GitHub Copilot 設定），並以 JSON 格式 POST 至 `http://localhost:7890/update`
+3. `services/local_server.py` 接收 POST 請求，以 `source` 欄位為鍵儲存至模組層級的 `DATA_STORE` 字典
+4. `MainApp._poll_browser_live()` 每 1.5 秒執行一次，檢查 `DATA_STORE` 是否有新時間戳，並啟動執行緒呼叫 `BrowserXxxService.fetch()` 讀取資料
+5. 結果放入 `_result_queue`；`_poll_queue()` 每 200ms 在主執行緒呼叫 `ServiceCard.update_result()` 更新 UI
 
-**Threading model:** All `service.fetch()` calls run in daemon threads. Results are communicated back to the main (GUI) thread exclusively through `queue.Queue`, which is drained by `after(200, _poll_queue)`.
+**執行緒模型：** 所有 `service.fetch()` 呼叫均在 daemon 執行緒中執行。結果透過 `queue.Queue` 傳回主（GUI）執行緒，由 `after(200, _poll_queue)` 定期清空。
 
-### Key Modules
+### 關鍵模組
 
-- **`main.py`** — Entry point; handles PyInstaller `sys._MEIPASS` path fixup, then starts `DesktopWidget`
-- **`widget_main.py`** — Alternative entry point that also starts `SystemTray` alongside `DesktopWidget`; used by `widget_build.spec`
-- **`widget_build.spec`** — PyInstaller spec for macOS/Windows packaging; uses **onedir mode** with `COLLECT` + `BUNDLE` (onefile mode crashes on macOS due to security restrictions)
-- **`gui/app.py`** — `MainApp(tk.Tk)` owns the window, cards, refresh logic, and settings dialog. `SERVICES` list at the top defines active services. `BROWSER_SERVICE_SOURCES` maps service keys to `DATA_STORE` source keys
-- **`gui/widgets.py`** — `ServiceCard` widget with `update_result()`, `set_loading()`. `_format_data()` contains hardcoded display logic branched by `service_name` string. `COLORS` dict defines the dark theme (Catppuccin-inspired)
-- **`services/base.py`** — `BaseService` ABC with `fetch(config) → ServiceResult`. `ServiceResult` is a dataclass with `service_name`, `success`, `data: dict`, `error`
-- **`services/local_server.py`** — `ThreadingHTTPServer` on `127.0.0.1:7890`. Module-level `DATA_STORE: dict[str, dict]` is the shared store. `start(port)` / `stop()` / `is_running()` / `get_data(key)` are the public API
-- **`services/browser_data.py`** — Four `BaseService` subclasses (one per monitored page) that read from `local_server.DATA_STORE`. Also stamps `updated_at` and adds a stale warning if data is >10 minutes old
-- **`config/manager.py`** — `ConfigManager` reads/writes `~/.config/ai-quota-monitor/config.json`. Sensitive fields (tokens, API keys) are Base64-encoded on disk (not encrypted). `load()` merges saved config with `DEFAULT_CONFIG` so new keys always have defaults
-- **`ai-monitor-client.js`** — Tampermonkey userscript. Runs page-specific scrapers (`parseOpenAIBilling`, `parseClaudeUsage`, `parseClaudeBilling`, `parseGitHubCopilot`) and POSTs to the local server. Has an in-page floating UI (📊 button) for status and settings
-- **`desktop_widget/tray.py`** — `SystemTray` uses `pystray`. On macOS, must call `icon.run_detached()` (not `icon.run()` in a thread) because AppKit requires the main thread, which tkinter already owns
+- **`main.py`** — 程式入口；處理 PyInstaller `sys._MEIPASS` 路徑修正，然後啟動 `DesktopWidget`
+- **`widget_main.py`** — 替代入口，同時啟動 `SystemTray` 與 `DesktopWidget`；由 `widget_build.spec` 使用
+- **`widget_build.spec`** — macOS/Windows 打包用的 PyInstaller spec；使用 **onedir 模式**，搭配 `COLLECT` + `BUNDLE`（onefile 模式在 macOS 上因安全限制會崩潰）
+- **`gui/app.py`** — `MainApp(tk.Tk)` 管理視窗、服務卡片、刷新邏輯與設定對話框。頂部的 `SERVICES` 清單定義啟用的服務；`BROWSER_SERVICE_SOURCES` 將服務鍵對應至 `DATA_STORE` 的來源鍵
+- **`gui/widgets.py`** — `ServiceCard` 小工具，含 `update_result()`、`set_loading()`。`_format_data()` 依 `service_name` 字串分支處理顯示邏輯；`COLORS` 字典定義深色主題（Catppuccin 風格）
+- **`services/base.py`** — `BaseService` 抽象基底類別，定義 `fetch(config) → ServiceResult`。`ServiceResult` 為 dataclass，包含 `service_name`、`success`、`data: dict`、`error`
+- **`services/local_server.py`** — 監聽 `127.0.0.1:7890` 的 `ThreadingHTTPServer`。模組層級的 `DATA_STORE: dict[str, dict]` 為共享資料庫；公開 API：`start(port)` / `stop()` / `is_running()` / `get_data(key)`
+- **`services/browser_data.py`** — 四個 `BaseService` 子類別（每個監控頁面一個），從 `local_server.DATA_STORE` 讀取資料，並標記 `updated_at`；若資料超過 10 分鐘未更新則顯示過期警告
+- **`config/manager.py`** — `ConfigManager` 讀寫 `~/.config/ai-quota-monitor/config.json`。敏感欄位（token、API 金鑰）在磁碟上以 Base64 編碼儲存（非加密）。`load()` 會將已儲存設定與 `DEFAULT_CONFIG` 合併，確保新增的鍵永遠有預設值
+- **`ai-monitor-client.js`** — Tampermonkey 使用者腳本。執行各頁面的抓取器（`parseOpenAIBilling`、`parseClaudeUsage`、`parseClaudeBilling`、`parseGitHubCopilot`），並 POST 至本地伺服器。頁面內有浮動 UI（📊 按鈕）可查看狀態與設定
+- **`desktop_widget/tray.py`** — `SystemTray` 使用 `pystray`。在 macOS 上必須呼叫 `icon.run_detached()`（不能在執行緒中呼叫 `icon.run()`），因為 AppKit 需要主執行緒，而主執行緒已被 tkinter 佔用
 
-### Inactive Service Classes
+### 未啟用的服務類別
 
-`services/` contains API-based service classes (`claude_api.py`, `claude_web.py`, `github_copilot.py`, `github_copilot_web.py`, `openai_api.py`, `google_gemini.py`) that are **not** in `gui/app.py`'s `SERVICES` list. To reactivate a service, add it to both `SERVICES` and `BROWSER_SERVICE_SOURCES` (or adapt `refresh_all` to call it directly).
+`services/` 中包含基於 API 的服務類別（`claude_api.py`、`claude_web.py`、`github_copilot.py`、`github_copilot_web.py`、`openai_api.py`、`google_gemini.py`），這些類別**未**出現在 `gui/app.py` 的 `SERVICES` 清單中。若要重新啟用某服務，需將其加入 `SERVICES` 與 `BROWSER_SERVICE_SOURCES`（或修改 `refresh_all` 直接呼叫）。
 
-### Adding a New Service
+### 新增服務
 
-1. Create `services/your_service.py` with a class extending `BaseService`; set `name` and implement `fetch(config) → ServiceResult`
-2. Add a config entry in `config/manager.py`'s `DEFAULT_CONFIG["services"]`
-3. Add the service instance to `SERVICES` in `gui/app.py`
-4. Add display logic for `service_name` in `ServiceCard._format_data()` in `gui/widgets.py`
+1. 建立 `services/your_service.py`，類別繼承 `BaseService`；設定 `name` 並實作 `fetch(config) → ServiceResult`
+2. 在 `config/manager.py` 的 `DEFAULT_CONFIG["services"]` 中新增設定項目
+3. 將服務實例加入 `gui/app.py` 的 `SERVICES` 清單
+4. 在 `gui/widgets.py` 的 `ServiceCard._format_data()` 中新增對應 `service_name` 的顯示邏輯
 
-### Config File Location
+### 設定檔位置
 
-- Windows: `C:\Users\<user>\.config\ai-quota-monitor\config.json`
-- macOS/Linux: `~/.config/ai-quota-monitor/config.json`
+- Windows：`C:\Users\<user>\.config\ai-quota-monitor\config.json`
+- macOS/Linux：`~/.config/ai-quota-monitor/config.json`
