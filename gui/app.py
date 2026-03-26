@@ -335,6 +335,7 @@ class MainApp(tk.Tk):
     ]
 
     _oclaw_hwnds: set = set()  # 追蹤「一鍵全開」開啟的 Chrome 視窗 HWND
+    _oflaw_hwnds: set = set()  # 追蹤「一鍵全開」開啟的 Firefox 視窗 HWND
 
     def _find_chrome(self) -> str | None:
         import shutil, os
@@ -352,6 +353,22 @@ class MainApp(tk.Tk):
                 return c
         return None
 
+    def _find_firefox(self) -> str | None:
+        import shutil, os
+        if sys.platform == "win32":
+            candidates = [
+                r"C:\Program Files\Mozilla Firefox\firefox.exe",
+                r"C:\Program Files (x86)\Mozilla Firefox\firefox.exe",
+            ]
+        elif sys.platform == "darwin":
+            candidates = ["/Applications/Firefox.app/Contents/MacOS/firefox"]
+        else:
+            candidates = ["firefox"]
+        for c in candidates:
+            if os.path.isfile(c) or shutil.which(c):
+                return c
+        return None
+
     def _get_chrome_hwnds(self) -> set:
         if sys.platform != "win32":
             return set()
@@ -362,6 +379,24 @@ class MainApp(tk.Tk):
         def cb(hwnd, _):
             u32.GetClassNameW(hwnd, buf, 512)
             if buf.value == "Chrome_WidgetWin_1" and u32.IsWindowVisible(hwnd):
+                u32.GetWindowTextW(hwnd, buf, 512)
+                if buf.value:
+                    hwnds.append(hwnd)
+            return True
+        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
+        u32.EnumWindows(WNDENUMPROC(cb), 0)
+        return set(hwnds)
+
+    def _get_firefox_hwnds(self) -> set:
+        if sys.platform != "win32":
+            return set()
+        import ctypes, ctypes.wintypes
+        u32 = ctypes.windll.user32
+        hwnds = []
+        buf = ctypes.create_unicode_buffer(512)
+        def cb(hwnd, _):
+            u32.GetClassNameW(hwnd, buf, 512)
+            if buf.value == "MozillaWindowClass" and u32.IsWindowVisible(hwnd):
                 u32.GetWindowTextW(hwnd, buf, 512)
                 if buf.value:
                     hwnds.append(hwnd)
@@ -422,6 +457,40 @@ class MainApp(tk.Tk):
             )
             subprocess.run(["osascript", "-e", script])
 
+    def _open_all_in_firefox(self):
+        """Open all four URLs in a single new Firefox window, track new HWNDs."""
+        urls = [url for _, url in self._PAGE_URLS]
+        firefox = self._find_firefox()
+        if not firefox:
+            for url in urls:
+                webbrowser.open(url)
+            return
+        self._close_oflaw_window()
+        before = self._get_firefox_hwnds()
+        subprocess.Popen([firefox, "--new-window"] + urls)
+        def track():
+            import time
+            for _ in range(20):  # up to 5s
+                time.sleep(0.25)
+                after = self._get_firefox_hwnds()
+                new = after - before
+                if new:
+                    MainApp._oflaw_hwnds.update(new)
+                    return
+        threading.Thread(target=track, daemon=True).start()
+
+    def _close_oflaw_window(self):
+        """Close tracked Firefox windows (Win32 only)."""
+        if sys.platform == "win32":
+            if not MainApp._oflaw_hwnds:
+                return
+            import ctypes
+            u32 = ctypes.windll.user32
+            WM_CLOSE = 0x0010
+            for hwnd in list(MainApp._oflaw_hwnds):
+                u32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
+            MainApp._oflaw_hwnds.clear()
+
     def _show_open_menu(self):
         menu = tk.Menu(self, tearoff=0,
                        bg=COLORS["card_bg"], fg=COLORS["text"],
@@ -431,10 +500,14 @@ class MainApp(tk.Tk):
             menu.add_command(label=f"  {label}",
                              command=lambda u=url: webbrowser.open(u))
         menu.add_separator()
-        menu.add_command(label="  一鍵全開",
+        menu.add_command(label="  🌐 一鍵全開 (Chrome)",
                          command=self._open_all_in_new_window)
-        menu.add_command(label="  一鍵關閉所有網頁",
+        menu.add_command(label="  ✕ 一鍵關閉所有網頁 (Chrome)",
                          command=self._close_oclaw_window)
+        menu.add_command(label="  🔥 一鍵全開 (Firefox)",
+                         command=self._open_all_in_firefox)
+        menu.add_command(label="  ✕ 一鍵關閉所有網頁 (Firefox)",
+                         command=self._close_oflaw_window)
         # Pop up below the button
         try:
             x = self.winfo_rootx() + self.winfo_width() - 220
