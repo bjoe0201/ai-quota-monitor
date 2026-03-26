@@ -65,9 +65,19 @@ python main.py
 
 ### 2. 安裝 Tampermonkey 瀏覽器腳本
 
+提供兩個版本，**擇一安裝**（不要同時啟用）：
+
+| 版本 | 檔案 | 適用情況 |
+|------|------|----------|
+| **v2（完整版）** | `ai-monitor-client.js` | 需要面板 UI、設定介面、頁面重刷、GUI 遠端觸發等完整功能 |
+| **v3（極簡版）** | `ai-monitor-client-v3.js` | 優先考慮流暢度，不需要 UI 面板，只要一個色點顯示狀態 |
+
+詳細差異說明見下方「[瀏覽器腳本版本比較](#瀏覽器腳本版本比較)」。
+
+**安裝步驟：**
 1. 安裝瀏覽器擴充套件 [Tampermonkey](https://www.tampermonkey.net/)
 2. 開啟 Tampermonkey > 新增腳本
-3. 將 `ai-monitor-client.js` 的全部內容貼入並儲存
+3. 將選定版本（v2 或 v3）的全部內容貼入並儲存
 4. 開啟以下任一支援頁面，腳本會自動開始擷取：
 
 | 頁面 | URL |
@@ -79,9 +89,8 @@ python main.py
 
 ### 3. 確認連線
 
-頁面右下角會出現 📊 浮動按鈕，點擊開啟面板：
-- 狀態點亮綠色（✓）表示資料已成功傳送至桌面程式
-- 桌面程式卡片顯示最新數值即表示連線成功
+- **v2**：頁面右下角會出現 📊 浮動按鈕，點擊開啟面板，狀態點亮綠色（✓）表示連線成功
+- **v3**：頁面右下角會出現單一色點（灰→黃→綠），綠色表示連線成功，可直接點擊觸發擷取
 
 ---
 
@@ -150,7 +159,9 @@ xattr -dr com.apple.quarantine dist/AI額度監控.app
 
 ---
 
-## 瀏覽器腳本功能
+## 瀏覽器腳本版本比較
+
+### v2（完整版）`ai-monitor-client.js`
 
 點擊頁面右下角 📊 按鈕開啟控制面板：
 
@@ -162,8 +173,51 @@ xattr -dr com.apple.quarantine dist/AI額度監控.app
 | **自動重新整理頁面** | 設定分頁自動 reload 間隔（0~600 秒，0 = 停用），各頁面獨立 |
 | **快速開啟頁面** | 一鍵跳轉至各 AI 服務頁面 |
 | **🚀 一鍵全開** | 同時在新分頁開啟全部 4 個支援頁面 |
+| **GUI 遠端觸發** | 桌面程式按「重新整理」時，透過 `/poll` 通知 JS 立即重新擷取 |
 
 腳本會自動偵測數值是否變化，**僅在數值更新時才傳送**，節省頻寬。
+
+---
+
+### v3（極簡版）`ai-monitor-client-v3.js`
+
+頁面右下角僅有一個 36px 色點，**零面板、零 CSS 注入、零輪詢**。
+
+| 色點顏色 | 狀態 |
+|----------|------|
+| 灰色 | 閒置，等待擷取 |
+| 黃色 | 擷取中 |
+| 綠色 | 成功，tooltip 顯示最後傳送時間 |
+| 紅色 | 失敗，tooltip 顯示錯誤原因 |
+
+**點擊色點**：立即手動觸發一次擷取。
+
+v3 移除的功能（相較 v2）：
+
+| 移除項目 | 說明 |
+|----------|------|
+| 設定面板 UI | server_url 與間隔改為程式碼內硬編碼 |
+| 頁面重刷功能 | 不再自動 reload 分頁 |
+| GUI 遠端觸發（`/poll`） | 桌面程式的「重新整理」不再觸發 v3 腳本 |
+| 快速開啟 / 一鍵全開 | 非核心功能 |
+| `GM_getValue` / `GM_setValue` | 不需持久化設定 |
+
+v3 的技術改進：
+
+| 改進項目 | 說明 |
+|----------|------|
+| 零 `innerHTML` 指派 | UI 僅用 `createElement`，不觸發 HTML 解析 |
+| 零 CSS 注入 | 改用 inline `style.cssText`，不呼叫 `GM_addStyle` |
+| `MutationObserver` 取代 `setInterval` | `waitForElement` 不再每 300ms 輪詢 DOM，改為原生事件通知 |
+| 行數從 ~1050 降至 ~290 | 更少的程式碼 = 更少的執行路徑 |
+
+---
+
+### 版本選擇建議
+
+- 需要調整設定、使用桌面程式「重新整理」按鈕遠端觸發 → 使用 **v2**
+- 只需要自動定時擷取、不在意 UI 操作 → 使用 **v3**
+- 若頁面有明顯卡頓感 → 改用 **v3**
 
 ---
 
@@ -247,7 +301,8 @@ xattr -dr com.apple.quarantine dist/AI額度監控.app
 ```
 ai-quota-monitor/
 ├── main.py                    # 主程式進入點（啟動桌面小工具）
-├── ai-monitor-client.js       # Tampermonkey 瀏覽器腳本（v1.8.3）
+├── ai-monitor-client.js       # Tampermonkey 瀏覽器腳本 v2（完整版）
+├── ai-monitor-client-v3.js    # Tampermonkey 瀏覽器腳本 v3（極簡版）
 ├── start.command              # macOS 雙擊啟動腳本
 ├── start.bat / start.ps1      # Windows 啟動腳本
 ├── start_widget.bat           # Windows 小工具啟動腳本（無 CMD 視窗）
@@ -302,6 +357,8 @@ chmod 600 ~/.config/ai-quota-monitor/config.json
 
 | 版本 | 主要變更 |
 |------|----------|
+| **v3.2.0 (JS)** | 新版極簡瀏覽器腳本（`ai-monitor-client-v3.js`）：單一色點 UI、零 CSS 注入、`MutationObserver` 取代 `setInterval` 輪詢、移除 `/poll` 與面板 UI，大幅降低對頁面主執行緒的干擾 |
+| **v2.4.2 (JS)** | 修正 `takePageSnapshot` 移除 `innerHTML` 複製，改為直接操作 live DOM，消除頁面卡頓根本原因 |
 | **v1.8.4** | macOS 一鍵開啟／關閉網頁改用 AppleScript，解決重複 spawn Chrome process 問題；新增 `--openurl` 啟動參數，執行 app 時自動開啟四個額度網頁；app 關閉時自動關閉所有 oclaw 網頁 |
 | **v1.8.3** | 一鍵開啟所有額度網頁至同一個新 Chrome 視窗（帶 `?oclaw=1` 參數）；新增「一鍵關閉所有網頁」功能（透過 Win32 `WM_CLOSE` 關閉追蹤的視窗）；Tampermonkey `@match` 加萬用字元支援任意 query string |
 | **v1.8.2** | macOS 完整支援（Python 3.9 相容、Tk 8.6、右鍵選單修正）；桌面小工具設為預設啟動；Claude.ai 額外用量顯示額外花費／上限／餘額／自動儲值；JS 版號自動遞增（git pre-commit hook）；接收記錄寫入 `data_log.json` |

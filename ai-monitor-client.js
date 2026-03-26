@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AI Quota Monitor Client
 // @namespace    https://github.com/ai-quota-monitor
-// @version      2.4.1
+// @version      2.4.2
 // @description  讀取 AI 服務額度資料並傳送給 AI Quota Monitor 桌面程式
 // @author       AI Quota Monitor
 // @match        https://platform.openai.com/settings/organization/billing/overview*
@@ -557,27 +557,16 @@
     }
 
     /**
-     * 對 main 區域做一次 innerHTML 快照，複製到獨立的 detached DOM 節點。
-     * 後續所有 querySelector / textContent 操作都在離線副本上執行，
-     * 完全不觸碰 live DOM，不觸發 layout reflow，不與 React 渲染競爭。
-     * innerText 在 detached DOM 無法使用（需要 layout），一律改用 textContent。
+     * 直接回傳目標容器節點，不做 innerHTML 複製。
+     * querySelector / textContent 不觸發 layout reflow，直接操作 live DOM 即可。
      */
     async function takePageSnapshot() {
         await new Promise(r => setTimeout(r, 0));
-        const t0 = performance.now();
-        const container = document.querySelector('main')
+        return document.querySelector('main')
             || document.querySelector('[role="main"]')
             || document.querySelector('#root')
             || document.querySelector('#__next')
             || document.body;
-        const t1 = performance.now();
-        const snap = document.createElement('div');
-        snap.innerHTML = container.innerHTML;  // 將 live DOM 複製一次
-        const t2 = performance.now();
-        const textLen = snap.textContent.length;
-        const t3 = performance.now();
-        console.log(`[AI Monitor ℹ️] snapshot: querySelector=${(t1-t0).toFixed(1)}ms | innerHTML複製=${(t2-t1).toFixed(1)}ms | textContent長度=${textLen}字元 (${(t3-t2).toFixed(1)}ms)`);
-        return snap;
     }
 
     /** Extract text block between two marker strings. */
