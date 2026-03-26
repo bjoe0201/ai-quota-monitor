@@ -1,9 +1,7 @@
-# CLAUDE.md
+# GitHub Copilot 指引
 
-> **⚠️ 同步提示：** 本檔案（`CLAUDE.md`）與 `.github/copilot-instructions.md` 內容保持一致。
+> **⚠️ 同步提示：** 本檔案（`.github/copilot-instructions.md`）與專案根目錄的 `CLAUDE.md` 內容保持一致。
 > 修改任一檔案時，請同步更新另一個檔案。
-
-本檔案提供 Claude Code（claude.ai/code）在此專案中工作時的指引。
 
 ## 指令
 
