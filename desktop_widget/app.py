@@ -58,7 +58,7 @@ SERVICE_NAMES = {
     "browser_github_copilot": "GitHub Copilot (瀏覽器)",
 }
 
-_WIDGET_VERSION = "v1.8.4"
+_WIDGET_VERSION = "v1.9.0"
 
 _PAGE_URLS = [
     ("OpenAI 帳單",     "https://platform.openai.com/settings/organization/billing/overview?oclaw=1"),
@@ -617,15 +617,11 @@ class DesktopWidget(tk.Tk):
         self.after(200, self._poll_queue)
 
     def _auto_resize(self):
-        """依內容自動調整視窗高度，並確保不超出螢幕底部。"""
+        """依內容自動調整視窗高度，固定左上角位置，僅向下延伸。"""
         self.update_idletasks()
         h = self.winfo_reqheight()
         x = self.winfo_x()
         y = self.winfo_y()
-        sh = self.winfo_screenheight()
-        # 避免超出螢幕底部（保留 48px 給工作列）
-        if y + h > sh - 48:
-            y = max(0, sh - h - 48)
         self.geometry(f"{WIDGET_WIDTH}x{h}+{x}+{y}")
         if self._desktop_level:
             self._sink_to_bottom()
@@ -665,6 +661,7 @@ class DesktopWidget(tk.Tk):
 
     def quit_app(self):
         _close_oclaw_window()
+        _close_oflaw_window()
         self._save_position()
         local_server.stop()
         self.destroy()

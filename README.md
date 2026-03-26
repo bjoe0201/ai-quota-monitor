@@ -1,4 +1,4 @@
-# AI 額度監控 · v1.8.3
+# AI 額度監控 · v1.9.0
 
 一個跨平台（Windows / macOS）桌面應用程式，搭配 Tampermonkey 瀏覽器腳本，即時監控各 AI 服務的使用額度與費用。
 另附輕量**桌面小工具**版本，可常駐桌面顯示翻頁時鐘與即時額度。
@@ -65,12 +65,21 @@ python main.py
 
 ### 2. 安裝 Tampermonkey 瀏覽器腳本
 
+本專案提供兩個版本的腳本，**建議使用 V4**：
+
+| 版本 | 檔案 | 方式 | 狀態 |
+|------|------|------|------|
+| **V4（推薦）** | `ai-monitor-client-v4.js` | API 攔截（零 DOM 依賴） | ✅ 目前維護 |
+| ~~V2~~ | ~~`ai-monitor-client.js`~~ | DOM 擷取 + 定時輪詢 | ⛔ 已停用 |
+
+> ℹ️ V4 採用 `fetch` / `XMLHttpRequest` hook，在 `@run-at document-start` 階段安裝攔截器，直接從 API JSON response 提取資料。相較 V2 的 DOM 擷取方式，V4 不受頁面改版影響、無需定時輪詢、資料更即時。
+
 > ⚠️ **已知問題（Chrome / Windows 11）**：在 Windows 11 上使用 Chrome 瀏覽器時，Tampermonkey 腳本可能造成頁面明顯卡頓。若遇到此問題，建議改用 **Firefox** 執行腳本。
 
 **安裝步驟：**
 1. 安裝瀏覽器擴充套件 [Tampermonkey](https://www.tampermonkey.net/)
 2. 開啟 Tampermonkey > 新增腳本
-3. 將腳本全部內容貼入並儲存
+3. 將 `ai-monitor-client-v4.js` 全部內容貼入並儲存
 4. 開啟以下任一支援頁面，腳本會自動開始擷取：
 
 | 頁面 | URL |
@@ -82,7 +91,8 @@ python main.py
 
 ### 3. 確認連線
 
-頁面右下角會出現 📊 浮動按鈕，點擊開啟面板，狀態點亮綠色（✓）表示連線成功。
+- **V4**：頁面右下角會出現 ⚡ 色點，綠色表示資料已成功傳送至桌面程式。
+- ~~V2~~：頁面右下角會出現 📊 浮動按鈕，點擊開啟面板。
 
 ---
 
@@ -153,23 +163,48 @@ xattr -dr com.apple.quarantine dist/AI額度監控.app
 
 ## 瀏覽器腳本功能說明
 
-### `ai-monitor-client.js`
+### `ai-monitor-client-v4.js`（推薦）
 
-點擊頁面右下角 📊 按鈕開啟控制面板：
+V4 採用 **API 攔截**（Network Interception）架構，在頁面載入前安裝 `fetch` / `XHR` hook，自動擷取 API response 中的額度資料。
 
-| 功能 | 說明 |
+| 特性 | 說明 |
 |------|------|
-| **▶ 立即擷取** | 手動觸發一次資料擷取並傳送 |
-| **⏹ 停止** | 暫停自動擷取 |
-| **💾 儲存** | 儲存擷取間隔、頁面重刷間隔與伺服器位址設定 |
-| **自動重新整理頁面** | 設定分頁自動 reload 間隔（0~600 秒，0 = 停用），各頁面獨立 |
-| **快速開啟頁面** | 一鍵跳轉至各 AI 服務頁面 |
-| **🚀 一鍵全開** | 同時在新分頁開啟全部 4 個支援頁面 |
-| **GUI 遠端觸發** | 桌面程式按「重新整理」時，透過 `/poll` 通知 JS 立即重新擷取 |
+| **零 DOM 依賴** | 不讀取任何 DOM 元素，不受頁面改版影響 |
+| **即時擷取** | API 回應到達時立即提取，無需定時輪詢 |
+| **合併傳送** | 2 秒合併視窗（debounce），多個 API 回應合併為一次傳送 |
+| **變化偵測** | 僅在資料有變化時才傳送至伺服器 |
+| **自動重載** | 資料過期後自動重新載入頁面（OpenAI 5 分鐘、Claude 3-5 分鐘、Copilot 10 分鐘） |
+| **⚡ 狀態色點** | 右下角色點：🔵 監聽中 / 🟢 成功 / 🔴 錯誤 / ⚪ 無回應 |
 
-腳本會自動偵測數值是否變化，**僅在數值更新時才傳送**，節省頻寬。
+#### Debug 模式
 
-> ⚠️ **已知問題（Chrome / Windows 11）**：在 Windows 11 上使用 Chrome 時，腳本目前有執行卡頓的問題，建議改用 **Firefox** 瀏覽器以獲得最佳體驗。
+預設開啟 debug 輸出。在瀏覽器 Console 輸入以下指令：
+
+```javascript
+__aimon.debug()      // 切換 debug 開關
+__aimon.status()     // 查看攔截狀態
+__aimon.data()       // 查看最近擷取的資料
+__aimon.flush()      // 強制送出暫存資料
+__aimon.server(url)  // 設定伺服器位址
+```
+
+#### 各頁面攔截的 API
+
+| 頁面 | 攔截的 API | 提取欄位 |
+|------|------------|----------|
+| **OpenAI** | `/billing/subscription`、`/billing/credit_grants` | 方案、餘額、硬上限、自動儲值 |
+| **Claude.ai** | `/usage`、`/prepaid/credits`、`/prepaid/bundles` | 工作階段%、每週%、額外用量、餘額、重置日期 |
+| **Claude API** | `/prepaid/credits`、`/current_spend`、`/rate_limits`、`/invoices` | 方案、餘額、本月用量、下次計費 |
+| **Copilot** | `/copilot_usage_card`、`/copilot_usage_table` | Premium Requests 已用/總量/百分比、計費金額 |
+
+---
+
+### ~~`ai-monitor-client.js`（V2，已停用）~~
+
+> ⛔ V2 已停用，不再維護。請改用 V4。
+>
+> V2 採用 DOM 擷取 + 定時輪詢方式，容易因頁面改版而失效。
+> 若仍需使用，腳本檔案仍保留於專案中，但不建議安裝。
 
 ---
 
@@ -192,16 +227,16 @@ xattr -dr com.apple.quarantine dist/AI額度監控.app
 - **自動更新間隔**：桌面程式定期通知 JS 重新擷取（預設 30 分鐘）
 - **本地伺服器 Port**：預設 `7890`，需與 JS 腳本設定一致
 
-透過 JS 面板可個別調整各頁面的設定：
+V4 腳本的自動重載間隔為內建設定，各頁面獨立：
 
-| 服務 | 擷取間隔 | 頁面重刷間隔 |
-|------|----------|--------------|
-| OpenAI 帳單 | 120 秒 | 0 秒（停用）|
-| Claude.ai 用量 | 60 秒 | 0 秒（停用）|
-| Claude API 帳單 | 120 秒 | 0 秒（停用）|
-| GitHub Copilot | 180 秒 | 0 秒（停用）|
+| 服務 | 自動重載間隔 |
+|------|-------------|
+| OpenAI 帳單 | 5 分鐘 |
+| Claude.ai 用量 | 3 分鐘 |
+| Claude API 帳單 | 5 分鐘 |
+| GitHub Copilot | 10 分鐘 |
 
-> **頁面重刷**：設定 > 0 時，頁面會在指定秒數後自動重新載入（0~600 秒，預設 0 = 停用），各頁面獨立設定。
+> V4 在資料過期（超過上述間隔未收到新 API 回應）時自動重新載入頁面，無需手動設定。
 
 ### 設定檔位置
 
@@ -218,13 +253,13 @@ xattr -dr com.apple.quarantine dist/AI額度監控.app
 > 確認 Tampermonkey 腳本已安裝，且已開啟對應的 AI 服務頁面。
 
 **Q: 瀏覽器腳本狀態點一直是紅色？**
-> 確認桌面程式已執行，且 JS 面板中的「本地伺服器位址」與程式 Port 設定一致（預設 `http://localhost:7890`）。
+> 確認桌面程式已執行，且伺服器位址與程式 Port 設定一致（預設 `http://localhost:7890`）。V4 可在 Console 輸入 `__aimon.server()` 查看目前設定。
 
 **Q: 按「重新整理」後卡片沒有更新？**
-> 瀏覽器需要開啟對應頁面且腳本在執行中。按下重新整理後，JS 最多 3 秒內收到通知並開始擷取。
+> 瀏覽器需要開啟對應頁面且腳本在執行中。V4 會在頁面載入時自動擷取 API 回應，無需手動觸發。
 
-**Q: 一鍵全開只開啟了一個分頁？**
-> 已改用 `GM_openInTab` API 解決瀏覽器彈出視窗封鎖問題（v1.4.0 起修正）。
+**Q: V4 顯示「未偵測到 API 回應」？**
+> 在 Console 執行 `__aimon.debug(true)` 若無任何 `✅ 匹配 API` 輸出，請重新載入頁面。若仍無效，可能是網站 API 路徑已變更，請通報 issue。
 
 **Q: macOS 上無法開啟 .app 檔案？**
 > 在 Finder 中對 .app 按右鍵 > 開啟，或執行：`xattr -dr com.apple.quarantine dist/AI額度監控.app`
@@ -242,7 +277,7 @@ xattr -dr com.apple.quarantine dist/AI額度監控.app
 - **語言**：Python 3.11+
 - **GUI 框架**：tkinter（自繪 Canvas 進度條、翻頁動畫，Catppuccin Macchiato 深色主題）
 - **本地伺服器**：Python `http.server.ThreadingHTTPServer`（port 7890）
-- **瀏覽器腳本**：Tampermonkey userscript（`GM_xmlhttpRequest`、`GM_openInTab`）
+- **瀏覽器腳本**：Tampermonkey userscript（V4: `fetch`/`XHR` hook + `GM_xmlhttpRequest`）
 - **系統匣**：pystray + Pillow
 - **打包工具**：PyInstaller
 - **設定儲存**：JSON
@@ -253,7 +288,8 @@ xattr -dr com.apple.quarantine dist/AI額度監控.app
 ```
 ai-quota-monitor/
 ├── main.py                    # 主程式進入點（啟動桌面小工具）
-├── ai-monitor-client.js       # Tampermonkey 瀏覽器腳本
+├── ai-monitor-client-v4.js    # Tampermonkey 瀏覽器腳本（V4 推薦，API 攔截）
+├── ai-monitor-client.js       # Tampermonkey 瀏覽器腳本（V2 已停用）
 ├── start.command              # macOS 雙擊啟動腳本
 ├── start.bat / start.ps1      # Windows 啟動腳本
 ├── start_widget.bat           # Windows 小工具啟動腳本（無 CMD 視窗）
