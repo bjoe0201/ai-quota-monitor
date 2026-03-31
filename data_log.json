@@ -1,9 +1,9 @@
 {
   "claude_usage": {
-    "session_percent": 16,
-    "session_reset": "1 hrs 16 mins",
-    "weekly_percent": 40,
-    "weekly_reset": "3 days 3 hrs",
+    "session_percent": 46,
+    "session_reset": "12 mins",
+    "weekly_percent": 10,
+    "weekly_reset": "7 days 14 hrs",
     "extra_enabled": true,
     "extra_spent": 1.59,
     "extra_limit": 20,
@@ -12,30 +12,30 @@
     "auto_reload": false,
     "extra_resets": "April 1",
     "source": "claude_usage",
-    "timestamp": "2026-03-26T14:45:07.276Z",
-    "page_url": "https://claude.ai/settings/usage?oclaw=1",
-    "received_at": "2026-03-26T22:45:07.402018"
+    "timestamp": "2026-03-31T17:49:05.232Z",
+    "page_url": "https://claude.ai/settings/usage?oflaw=1",
+    "received_at": "2026-04-01T01:49:05.347211"
   },
   "github_copilot": {
-    "included_consumed": 1298.64,
+    "included_consumed": 1500,
+    "billed_usd": 4.240399999,
     "included_total": 1500,
-    "billed_usd": 0,
-    "included_percent": 86.6,
+    "included_percent": 100,
     "source": "github_copilot",
-    "timestamp": "2026-03-26T14:43:53.082Z",
+    "timestamp": "2026-03-31T17:48:54.664Z",
     "page_url": "https://github.com/settings/billing/premium_requests_usage?period=3&group=7&customer=14285628&chart_selection=2",
-    "received_at": "2026-03-26T22:43:53.210463"
+    "received_at": "2026-04-01T01:48:54.778271"
   },
   "claude_billing": {
     "plan": "Auto Prepaid Tier 0",
-    "auto_recharge": false,
-    "balance_usd": 1.38,
     "this_month_usd": 0,
     "next_billing": "April 1, 2026",
+    "auto_recharge": false,
+    "balance_usd": 1.38,
     "source": "claude_billing",
-    "timestamp": "2026-03-26T14:44:01.791Z",
-    "page_url": "https://platform.claude.com/settings/billing?oclaw=1",
-    "received_at": "2026-03-26T22:44:01.901178"
+    "timestamp": "2026-03-31T17:48:56.972Z",
+    "page_url": "https://platform.claude.com/settings/billing?oflaw=1",
+    "received_at": "2026-04-01T01:48:57.099092"
   },
   "openai_billing": {
     "hard_limit_usd": 9.99996,
@@ -43,12 +43,12 @@
     "access_until": 1733616000,
     "tier": "Pay-as-you-go",
     "auto_recharge": false,
-    "balance_usd": 34.67930014,
+    "balance_usd": 30.6291894,
     "credits_total_usd": 40,
-    "credits_used_usd": 5.32069986,
+    "credits_used_usd": 9.3708106,
     "source": "openai_billing",
-    "timestamp": "2026-03-26T14:43:59.821Z",
-    "page_url": "https://platform.openai.com/settings/organization/billing/overview?oclaw=1",
-    "received_at": "2026-03-26T22:43:59.950085"
+    "timestamp": "2026-03-31T17:48:58.655Z",
+    "page_url": "https://platform.openai.com/settings/organization/billing/overview?oflaw=1",
+    "received_at": "2026-04-01T01:48:58.785004"
   }
 }

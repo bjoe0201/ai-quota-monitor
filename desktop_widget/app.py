@@ -58,13 +58,20 @@ SERVICE_NAMES = {
     "browser_github_copilot": "GitHub Copilot (瀏覽器)",
 }
 
-_WIDGET_VERSION = "v1.9.0"
+_WIDGET_VERSION = "v1.10.0"
 
 _PAGE_URLS = [
     ("OpenAI 帳單",     "https://platform.openai.com/settings/organization/billing/overview?oclaw=1"),
     ("Claude.ai 用量",  "https://claude.ai/settings/usage?oclaw=1"),
     ("Claude API 帳單", "https://platform.claude.com/settings/billing?oclaw=1"),
     ("GitHub Copilot",  "https://github.com/settings/billing/premium_requests_usage?oclaw=1"),
+]
+
+_PAGE_URLS_FF = [
+    ("OpenAI 帳單",     "https://platform.openai.com/settings/organization/billing/overview?oflaw=1"),
+    ("Claude.ai 用量",  "https://claude.ai/settings/usage?oflaw=1"),
+    ("Claude API 帳單", "https://platform.claude.com/settings/billing?oflaw=1"),
+    ("GitHub Copilot",  "https://github.com/settings/billing/premium_requests_usage?oflaw=1"),
 ]
 
 _oclaw_hwnds: set = set()  # 追蹤「一鍵全開」開啟的 Chrome 視窗 HWND
@@ -103,6 +110,22 @@ def _find_firefox() -> str | None:
         if os.path.isfile(c) or shutil.which(c):
             return c
     return None
+
+
+def _open_in_chrome(url: str):
+    chrome = _find_chrome()
+    if chrome:
+        subprocess.Popen([chrome, url])
+    else:
+        webbrowser.open(url)
+
+
+def _open_in_firefox(url: str):
+    firefox = _find_firefox()
+    if firefox:
+        subprocess.Popen([firefox, url])
+    else:
+        webbrowser.open(url)
 
 
 def _get_chrome_hwnds() -> set:
@@ -221,7 +244,7 @@ def _close_oclaw_window():
 
 def _open_all_in_firefox():
     """Open all four URLs in a single new Firefox window, track new HWNDs."""
-    urls = [url for _, url in _PAGE_URLS]
+    urls = [url for _, url in _PAGE_URLS_FF]
     firefox = _find_firefox()
     if not firefox:
         for url in urls:
@@ -492,17 +515,32 @@ class DesktopWidget(tk.Tk):
         menu.add_command(label=level_label, command=self._toggle_desktop_level)
 
         menu.add_separator()
+        sub_kw = dict(
+            bg=COLORS["card_bg"], fg=COLORS["text"],
+            activebackground=COLORS["info"], activeforeground=COLORS["bg"],
+            font=("Segoe UI", 9), relief="flat", bd=0,
+        )
+        chrome_menu = tk.Menu(menu, tearoff=0, **sub_kw)
         for label, url in _PAGE_URLS:
-            menu.add_command(label=f"  🌐 {label}",
-                             command=lambda u=url: webbrowser.open(u))
-        menu.add_command(label="  🌐 一鍵開啟所有網頁 (Chrome)",
-                         command=_open_all_in_new_window)
-        menu.add_command(label="  ✕ 一鍵關閉所有網頁 (Chrome)",
-                         command=_close_oclaw_window)
-        menu.add_command(label="  🔥 一鍵開啟所有網頁 (Firefox)",
-                         command=_open_all_in_firefox)
-        menu.add_command(label="  ✕ 一鍵關閉所有網頁 (Firefox)",
-                         command=_close_oflaw_window)
+            chrome_menu.add_command(label=f"  🌐 {label}",
+                                    command=lambda u=url: _open_in_chrome(u))
+        chrome_menu.add_separator()
+        chrome_menu.add_command(label="  🌐 一鍵開啟所有網頁",
+                                command=_open_all_in_new_window)
+        chrome_menu.add_command(label="  ✕  一鍵關閉所有網頁",
+                                command=_close_oclaw_window)
+        menu.add_cascade(label="  Chrome ▶", menu=chrome_menu)
+
+        ff_menu = tk.Menu(menu, tearoff=0, **sub_kw)
+        for label, url in _PAGE_URLS_FF:
+            ff_menu.add_command(label=f"  🌐 {label}",
+                                command=lambda u=url: _open_in_firefox(u))
+        ff_menu.add_separator()
+        ff_menu.add_command(label="  🔥 一鍵開啟所有網頁",
+                            command=_open_all_in_firefox)
+        ff_menu.add_command(label="  ✕  一鍵關閉所有網頁",
+                            command=_close_oflaw_window)
+        menu.add_cascade(label="  Firefox ▶", menu=ff_menu)
         menu.add_separator()
         menu.add_command(label="  🖥 開啟主視窗", command=self._open_main_window)
         menu.add_command(label="  ⚙ 透明度設定", command=self._opacity_dialog)
