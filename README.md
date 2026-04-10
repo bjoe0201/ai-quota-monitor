@@ -1,4 +1,4 @@
-# AI 額度監控 · v1.9.0
+# AI 額度監控 · v4.2.0
 
 一個跨平台（Windows / macOS）桌面應用程式，搭配 Tampermonkey 瀏覽器腳本，即時監控各 AI 服務的使用額度與費用。
 另附輕量**桌面小工具**版本，可常駐桌面顯示翻頁時鐘與即時額度。
@@ -47,7 +47,7 @@
 > ```
 
 ```bash
-git clone https://github.com/your-repo/ai-quota-monitor.git
+git clone https://github.com/bjoe0201/ai-quota-monitor.git
 cd ai-quota-monitor
 pip3.11 install -r requirements.txt
 ```
@@ -57,7 +57,7 @@ pip3.11 install -r requirements.txt
 #### Windows
 
 ```bash
-git clone https://github.com/your-repo/ai-quota-monitor.git
+git clone https://github.com/bjoe0201/ai-quota-monitor.git
 cd ai-quota-monitor
 pip install -r requirements.txt
 python main.py
@@ -65,21 +65,21 @@ python main.py
 
 ### 2. 安裝 Tampermonkey 瀏覽器腳本
 
-本專案提供兩個版本的腳本，**建議使用 V4**：
+本專案提供以下版本的腳本，**建議使用 V4.1**：
 
 | 版本 | 檔案 | 方式 | 狀態 |
 |------|------|------|------|
-| **V4（推薦）** | `ai-monitor-client-v4.js` | API 攔截（零 DOM 依賴） | ✅ 目前維護 |
-| ~~V2~~ | ~~`ai-monitor-client.js`~~ | DOM 擷取 + 定時輪詢 | ⛔ 已停用 |
+| **V4.1（推薦）** | `ai-monitor-client-v4.1.js` | API 攔截（URL 前置過濾 + 效能優化） | ✅ 目前維護 |
+| V4 | `ai-monitor-client-v4.js` | API 攔截（零 DOM 依賴） | ✅ 可用 |
 
-> ℹ️ V4 採用 `fetch` / `XMLHttpRequest` hook，在 `@run-at document-start` 階段安裝攔截器，直接從 API JSON response 提取資料。相較 V2 的 DOM 擷取方式，V4 不受頁面改版影響、無需定時輪詢、資料更即時。
+> ℹ️ V4.1 在 V4 基礎上新增 URL 前置過濾與精準解析，效能更佳，Chrome 上的卡頓問題已改善。
 
-> ⚠️ **已知問題（Chrome / Windows 11）**：在 Windows 11 上使用 Chrome 瀏覽器時，Tampermonkey 腳本可能造成頁面明顯卡頓。若遇到此問題，建議改用 **Firefox** 執行腳本。
+> ⚠️ **已知問題（Chrome / Windows 11）**：在 Windows 11 上使用 Chrome 瀏覽器時，Tampermonkey 腳本可能造成頁面輕微卡頓。若遇到此問題，建議改用 **Firefox** 執行腳本。
 
 **安裝步驟：**
 1. 安裝瀏覽器擴充套件 [Tampermonkey](https://www.tampermonkey.net/)
 2. 開啟 Tampermonkey > 新增腳本
-3. 將 `ai-monitor-client-v4.js` 全部內容貼入並儲存
+3. 將 `ai-monitor-client-v4.1.js` 全部內容貼入並儲存
 4. 開啟以下任一支援頁面，腳本會自動開始擷取：
 
 | 頁面 | URL |
@@ -87,12 +87,11 @@ python main.py
 | OpenAI 帳單 | `https://platform.openai.com/settings/organization/billing/overview` |
 | Claude.ai 用量 | `https://claude.ai/settings/usage` |
 | Claude API 帳單 | `https://platform.claude.com/settings/billing` |
-| GitHub Copilot | `https://github.com/settings/billing/premium_requests_usage` |
+| GitHub Copilot | `https://github.com/settings/copilot/features` |
 
 ### 3. 確認連線
 
-- **V4**：頁面右下角會出現 ⚡ 色點，綠色表示資料已成功傳送至桌面程式。
-- ~~V2~~：頁面右下角會出現 📊 浮動按鈕，點擊開啟面板。
+頁面右下角會出現 ⚡ 色點，綠色表示資料已成功傳送至桌面程式。
 
 ---
 
@@ -109,7 +108,7 @@ python main.py
 
 ```bash
 # 直接執行
-python main.py
+python widget_main.py
 ```
 
 ### 功能特色
@@ -130,7 +129,7 @@ python main.py
 | 操作 | 說明 |
 |------|------|
 | **左鍵拖曳** | 移動視窗位置（自動儲存） |
-| **右鍵選單** | 重新整理 / 固定桌面層 / 開啟各監控頁面 / 一鍵全開 / 透明度 / 離開 |
+| **右鍵選單** | 重新整理 / 固定桌面層 / Chrome 子選單 / Firefox 子選單 / 透明度 / 離開 |
 | **⟳ 按鈕** | 狀態列右側，點擊立即重新整理所有卡片 |
 | **系統匣圖示** | 右鍵可顯示/隱藏視窗或離開 |
 
@@ -163,14 +162,15 @@ xattr -dr com.apple.quarantine dist/AI額度監控.app
 
 ## 瀏覽器腳本功能說明
 
-### `ai-monitor-client-v4.js`（推薦）
+### `ai-monitor-client-v4.1.js`（推薦）
 
-V4 採用 **API 攔截**（Network Interception）架構，在頁面載入前安裝 `fetch` / `XHR` hook，自動擷取 API response 中的額度資料。
+V4.1 採用 **API 攔截**（Network Interception）架構，在頁面載入前安裝 `fetch` / `XHR` hook，並加入 URL 前置過濾與精準解析，自動擷取 API response 中的額度資料。
 
 | 特性 | 說明 |
 |------|------|
 | **零 DOM 依賴** | 不讀取任何 DOM 元素，不受頁面改版影響 |
 | **即時擷取** | API 回應到達時立即提取，無需定時輪詢 |
+| **URL 前置過濾** | 僅攔截已知 API 路徑，減少不必要的處理開銷 |
 | **合併傳送** | 2 秒合併視窗（debounce），多個 API 回應合併為一次傳送 |
 | **變化偵測** | 僅在資料有變化時才傳送至伺服器 |
 | **自動重載** | 資料過期後自動重新載入頁面（OpenAI 5 分鐘、Claude 3-5 分鐘、Copilot 10 分鐘） |
@@ -199,15 +199,6 @@ __aimon.server(url)  // 設定伺服器位址
 
 ---
 
-### ~~`ai-monitor-client.js`（V2，已停用）~~
-
-> ⛔ V2 已停用，不再維護。請改用 V4。
->
-> V2 採用 DOM 擷取 + 定時輪詢方式，容易因頁面改版而失效。
-> 若仍需使用，腳本檔案仍保留於專案中，但不建議安裝。
-
----
-
 ## 桌面應用程式功能
 
 | 操作 | 說明 |
@@ -227,7 +218,7 @@ __aimon.server(url)  // 設定伺服器位址
 - **自動更新間隔**：桌面程式定期通知 JS 重新擷取（預設 30 分鐘）
 - **本地伺服器 Port**：預設 `7890`，需與 JS 腳本設定一致
 
-V4 腳本的自動重載間隔為內建設定，各頁面獨立：
+V4.1 腳本的自動重載間隔為內建設定，各頁面獨立：
 
 | 服務 | 自動重載間隔 |
 |------|-------------|
@@ -236,7 +227,7 @@ V4 腳本的自動重載間隔為內建設定，各頁面獨立：
 | Claude API 帳單 | 5 分鐘 |
 | GitHub Copilot | 10 分鐘 |
 
-> V4 在資料過期（超過上述間隔未收到新 API 回應）時自動重新載入頁面，無需手動設定。
+> V4.1 在資料過期（超過上述間隔未收到新 API 回應）時自動重新載入頁面，無需手動設定。
 
 ### 設定檔位置
 
@@ -253,13 +244,13 @@ V4 腳本的自動重載間隔為內建設定，各頁面獨立：
 > 確認 Tampermonkey 腳本已安裝，且已開啟對應的 AI 服務頁面。
 
 **Q: 瀏覽器腳本狀態點一直是紅色？**
-> 確認桌面程式已執行，且伺服器位址與程式 Port 設定一致（預設 `http://localhost:7890`）。V4 可在 Console 輸入 `__aimon.server()` 查看目前設定。
+> 確認桌面程式已執行，且伺服器位址與程式 Port 設定一致（預設 `http://localhost:7890`）。可在 Console 輸入 `__aimon.server()` 查看目前設定。
 
 **Q: 按「重新整理」後卡片沒有更新？**
-> 瀏覽器需要開啟對應頁面且腳本在執行中。V4 會在頁面載入時自動擷取 API 回應，無需手動觸發。
+> 瀏覽器需要開啟對應頁面且腳本在執行中。V4.1 會在頁面載入時自動擷取 API 回應，無需手動觸發。
 
-**Q: V4 顯示「未偵測到 API 回應」？**
-> 在 Console 執行 `__aimon.debug(true)` 若無任何 `✅ 匹配 API` 輸出，請重新載入頁面。若仍無效，可能是網站 API 路徑已變更，請通報 issue。
+**Q: 顯示「未偵測到 API 回應」？**
+> 在 Console 執行 `__aimon.debug(true)`，若無任何 `✅ 匹配 API` 輸出，請重新載入頁面。若仍無效，可能是網站 API 路徑已變更，請通報 issue。
 
 **Q: macOS 上無法開啟 .app 檔案？**
 > 在 Finder 中對 .app 按右鍵 > 開啟，或執行：`xattr -dr com.apple.quarantine dist/AI額度監控.app`
@@ -277,7 +268,7 @@ V4 腳本的自動重載間隔為內建設定，各頁面獨立：
 - **語言**：Python 3.11+
 - **GUI 框架**：tkinter（自繪 Canvas 進度條、翻頁動畫，Catppuccin Macchiato 深色主題）
 - **本地伺服器**：Python `http.server.ThreadingHTTPServer`（port 7890）
-- **瀏覽器腳本**：Tampermonkey userscript（V4: `fetch`/`XHR` hook + `GM_xmlhttpRequest`）
+- **瀏覽器腳本**：Tampermonkey userscript（V4.1: `fetch`/`XHR` hook + URL 前置過濾 + `GM_xmlhttpRequest`）
 - **系統匣**：pystray + Pillow
 - **打包工具**：PyInstaller
 - **設定儲存**：JSON
@@ -287,29 +278,29 @@ V4 腳本的自動重載間隔為內建設定，各頁面獨立：
 
 ```
 ai-quota-monitor/
-├── main.py                    # 主程式進入點（啟動桌面小工具）
-├── ai-monitor-client-v4.js    # Tampermonkey 瀏覽器腳本（V4 推薦，API 攔截）
-├── ai-monitor-client.js       # Tampermonkey 瀏覽器腳本（V2 已停用）
-├── start.command              # macOS 雙擊啟動腳本
-├── start.bat / start.ps1      # Windows 啟動腳本
-├── start_widget.bat           # Windows 小工具啟動腳本（無 CMD 視窗）
-├── build.spec                 # PyInstaller 設定
-├── data_log.json              # 最新一筆各來源資料記錄（除錯用）
+├── main.py                      # 主程式進入點（啟動桌面小工具）
+├── widget_main.py               # 桌面小工具入口（含系統匣）
+├── ai-monitor-client-v4.1.js   # Tampermonkey 瀏覽器腳本（V4.1 推薦）
+├── ai-monitor-client-v4.js     # Tampermonkey 瀏覽器腳本（V4 可用）
+├── start.command                # macOS 雙擊啟動腳本
+├── start.bat / start.ps1        # Windows 啟動腳本
+├── start_widget.bat             # Windows 小工具啟動腳本（無 CMD 視窗）
+├── widget_build.spec            # PyInstaller 設定（onedir 模式）
 ├── gui/
-│   ├── app.py                 # 舊版主視窗（保留備用）
-│   └── widgets.py             # ServiceCard、ProgressBar 元件
+│   ├── app.py                   # 主視窗（ServiceCard 管理、刷新邏輯）
+│   └── widgets.py               # ServiceCard、ProgressBar 元件
 ├── desktop_widget/
-│   ├── app.py                 # 桌面小工具主視窗
-│   ├── clock.py               # 翻頁時鐘（AnimatedDigit、FlipClock）
-│   ├── cards.py               # CompactServiceCard 精簡卡片
-│   ├── styles.py              # 小工具樣式常數
-│   └── tray.py                # 系統匣圖示（pystray）
+│   ├── app.py                   # 桌面小工具主視窗
+│   ├── clock.py                 # 翻頁時鐘（AnimatedDigit、FlipClock）
+│   ├── cards.py                 # CompactServiceCard 精簡卡片
+│   ├── styles.py                # 小工具樣式常數
+│   └── tray.py                  # 系統匣圖示（pystray）
 ├── services/
-│   ├── base.py                # BaseService、ServiceResult
-│   ├── browser_data.py        # 從 local_server 讀取瀏覽器資料
-│   └── local_server.py        # HTTP 伺服器（/update、/poll、/status）
+│   ├── base.py                  # BaseService、ServiceResult
+│   ├── browser_data.py          # 從 local_server 讀取瀏覽器資料
+│   └── local_server.py          # HTTP 伺服器（/update、/poll、/status）
 └── config/
-    └── manager.py             # 設定讀寫
+    └── manager.py               # 設定讀寫
 ```
 
 ---
@@ -344,15 +335,12 @@ chmod 600 ~/.config/ai-quota-monitor/config.json
 
 | 版本 | 主要變更 |
 |------|----------|
-| **v2.4.2 (JS)** | 修正 `takePageSnapshot` 移除 `innerHTML` 複製，改為直接操作 live DOM，消除頁面卡頓根本原因 |
-| **v1.8.4** | macOS 一鍵開啟／關閉網頁改用 AppleScript，解決重複 spawn Chrome process 問題；新增 `--openurl` 啟動參數，執行 app 時自動開啟四個額度網頁；app 關閉時自動關閉所有 oclaw 網頁 |
-| **v1.8.3** | 一鍵開啟所有額度網頁至同一個新 Chrome 視窗（帶 `?oclaw=1` 參數）；新增「一鍵關閉所有網頁」功能（透過 Win32 `WM_CLOSE` 關閉追蹤的視窗）；Tampermonkey `@match` 加萬用字元支援任意 query string |
-| **v1.8.2** | macOS 完整支援（Python 3.9 相容、Tk 8.6、右鍵選單修正）；桌面小工具設為預設啟動；Claude.ai 額外用量顯示額外花費／上限／餘額／自動儲值；JS 版號自動遞增（git pre-commit hook）；接收記錄寫入 `data_log.json` |
-| **v1.8.0** | 新增桌面小工具（翻頁時鐘 + 精簡卡片 + 系統匣）；修正 GUI「重新整理」無法觸發 JS 回報的問題 |
-| **v1.7.0** | JS 新增「自動重新整理頁面」設定；GUI 新增「🌐 開啟網頁」下拉選單 |
-| **v1.6.0** | GUI 按「重新整理」即時通知 JS 重新擷取；修正卡片寬度；版號同步 |
-| **v1.5.0** | GUI 美化（Catppuccin 主題、Canvas 進度條、雙欄卡片）；版號顯示 |
-| **v1.4.0** | 一鍵全開改用 `GM_openInTab` 解決彈出視窗封鎖問題；數值變化偵測 |
-| **v1.3.0** | 新增快速開啟頁面按鈕、一鍵全開功能 |
-| **v1.2.0** | 修正 Claude API 帳單餘額抓取 |
+| **v4.2.0** | 右鍵選單新增 Chrome / Firefox 分類子選單；更新 GitHub Copilot URL；調整使用量與計費數據顯示邏輯 |
+| **v4.1.0** | JS 新增 URL 前置過濾與精準解析，效能優化；改善 Chrome 卡頓問題 |
+| **v4.0.0** | JS 改採 API 攔截架構（fetch/XHR hook），零 DOM 依賴，不受頁面改版影響 |
+| **v1.8.4** | macOS 一鍵開啟／關閉網頁改用 AppleScript；新增 `--openurl` 啟動參數 |
+| **v1.8.3** | 一鍵開啟所有額度網頁至同一個新 Chrome 視窗；新增「一鍵關閉所有網頁」功能 |
+| **v1.8.2** | macOS 完整支援；桌面小工具設為預設啟動；Claude.ai 額外用量顯示優化 |
+| **v1.8.0** | 新增桌面小工具（翻頁時鐘 + 精簡卡片 + 系統匣） |
+| **v1.7.0** | JS 新增自動重新整理頁面設定；GUI 新增開啟網頁下拉選單 |
 | **v1.1.0** | 初始版本：Tampermonkey 瀏覽器擷取架構 |
