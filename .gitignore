@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+*.spec.bak
+
+# PyInstaller output
+dist/
+build/
+
+# User config (contains API keys / tokens — never commit)
+config.json
+*.config.json
+
+# Runtime data log (contains personal billing/usage data — never commit)
+data_log.json
+
+# Claude Code project settings (may contain local paths)
+.claude/
+
+# PLANS screenshots (contain personal usage data)
+PLANS/*.jpg
+PLANS/*.png
+
+# Environment
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
