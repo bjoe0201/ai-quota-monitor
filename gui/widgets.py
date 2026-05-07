@@ -204,6 +204,12 @@ class ServiceCard(tk.Frame):
                     font=("Segoe UI", 8),
                     anchor="w",
                 ).pack(fill="x")
+            elif isinstance(row, dict) and row.get("type") == "pair":
+                self._add_pair_row(
+                    row.get("left_label", ""), row.get("left_value", ""),
+                    row.get("right_label", ""), row.get("right_value", ""),
+                    bg=bg,
+                )
             else:
                 label, value, *rest = row if isinstance(row, (list, tuple)) else (row, "", [])
                 vc = rest[0] if rest else COLORS["text"]
@@ -233,6 +239,29 @@ class ServiceCard(tk.Frame):
                 inner, text=label, fg=value_color, bg=bg,
                 font=("Segoe UI", 9), anchor="w",
             ).pack(fill="x")
+
+    def _add_pair_row(self, left_label: str, left_value: str = "",
+                       right_label: str = "", right_value: str = "",
+                       bg: str = None):
+        bg = bg or COLORS["card_bg"]
+        row = tk.Frame(self.content_frame, bg=bg)
+        row.pack(fill="x", pady=1)
+        inner = tk.Frame(row, bg=bg)
+        inner.pack(fill="x", padx=2, pady=1)
+
+        left_f = tk.Frame(inner, bg=bg)
+        left_f.pack(side="left", fill="x", expand=True)
+        tk.Label(left_f, text=left_label, fg=COLORS["subtext"], bg=bg,
+                 font=("Segoe UI", 8), anchor="w", width=5).pack(side="left")
+        tk.Label(left_f, text=left_value, fg=COLORS["text"], bg=bg,
+                 font=("Segoe UI", 9, "bold"), anchor="w").pack(side="left")
+
+        right_f = tk.Frame(inner, bg=bg)
+        right_f.pack(side="left", fill="x", expand=True)
+        tk.Label(right_f, text=right_label, fg=COLORS["subtext"], bg=bg,
+                 font=("Segoe UI", 8), anchor="w", width=5).pack(side="left")
+        tk.Label(right_f, text=right_value, fg=COLORS["text"], bg=bg,
+                 font=("Segoe UI", 9, "bold"), anchor="w").pack(side="left")
 
     def _add_progress_row(self, label: str, percent: float, detail: str = "",
                           color: str = None, bg: str = None):
@@ -500,14 +529,22 @@ class ServiceCard(tk.Frame):
                 rows.append((str(data["parse_error"]), "", COLORS["error"]))
             if "balance_usd" in data:
                 rows.append(("帳戶餘額", f"${data['balance_usd']:.2f}", COLORS["green"]))
-            if "month_spend_usd" in data:
-                rows.append(("本月花費", f"${data['month_spend_usd']:.4f}"))
-            if data.get("month_requests") is not None:
-                rows.append(("本月請求", f"{data['month_requests']:,} 次"))
-            if data.get("month_tokens") is not None:
-                rows.append(("本月 Tokens", format_tokens(int(data["month_tokens"]))))
-            if data.get("top_model"):
-                rows.append(("主要模型", str(data["top_model"])[:32]))
+            if data.get("month_spend_usd") is not None or data.get("month_requests") is not None:
+                rows.append({
+                    "type": "pair",
+                    "left_label": "花費",
+                    "left_value": f"${data['month_spend_usd']:.4f}" if data.get("month_spend_usd") is not None else "",
+                    "right_label": "請求",
+                    "right_value": f"{data['month_requests']:,} 次" if data.get("month_requests") is not None else "",
+                })
+            if data.get("month_tokens") is not None or data.get("top_model"):
+                rows.append({
+                    "type": "pair",
+                    "left_label": "Tokens",
+                    "left_value": format_tokens(int(data["month_tokens"])) if data.get("month_tokens") is not None else "",
+                    "right_label": "模型",
+                    "right_value": str(data["top_model"])[:20] if data.get("top_model") else "",
+                })
 
         if not rows:
             rows.append(("無資料", "", COLORS["subtext"]))

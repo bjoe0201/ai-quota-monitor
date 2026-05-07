@@ -564,7 +564,7 @@
                     const m = text.match(/^\$\s*([\d,]+\.\d{2})$/);
                     if (m) {
                         const val = parseFloat(m[1].replace(/,/g, ''));
-                        if (isFinite(val) && val >= 0) {
+                        if (isFinite(val) && val >= 0 && val < 100000) {
                             balance = val;
                             break;
                         }
