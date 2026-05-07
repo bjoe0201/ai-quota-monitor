@@ -283,18 +283,28 @@ class CompactServiceCard(tk.Frame):
 
         elif service_name == "Claude API 帳單 (瀏覽器)":
             self._browser_header(data, rows)
-            if data.get("plan"):
-                rows.append(("方案", data["plan"]))
+            # Row 1: 方案 + 帳戶餘額
+            if data.get("plan") or "balance_usd" in data:
+                rows.append({
+                    "type": "pair",
+                    "left_label": "餘額",
+                    "left_value": f"${data['balance_usd']:.2f}" if "balance_usd" in data else "",
+                    "right_label": "方案",
+                    "right_value": str(data["plan"]) if data.get("plan") else "",
+                })
+            # Row 2: 本月用量 + 下次計費
+            if "this_month_usd" in data or data.get("next_billing"):
+                rows.append({
+                    "type": "pair",
+                    "left_label": "用量",
+                    "left_value": f"${data['this_month_usd']:.4f}" if "this_month_usd" in data else "",
+                    "right_label": "計費",
+                    "right_value": str(data["next_billing"]) if data.get("next_billing") else "",
+                })
             if "monthly_usd" in data:
                 rows.append(("月費", f"${data['monthly_usd']:.2f}"))
-            if "this_month_usd" in data:
-                rows.append(("本月用量", f"${data['this_month_usd']:.4f}"))
-            if "balance_usd" in data:
-                rows.append(("帳戶餘額", f"${data['balance_usd']:.2f}", COLORS["green"]))
             if "spend_limit_usd" in data:
                 rows.append(("消費上限", f"${data['spend_limit_usd']:.2f}"))
-            if data.get("next_billing"):
-                rows.append(("下次計費", data["next_billing"]))
 
         elif service_name == "GitHub Copilot (瀏覽器)":
             self._browser_header(data, rows)
