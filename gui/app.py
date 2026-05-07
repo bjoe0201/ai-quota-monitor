@@ -13,6 +13,7 @@ from services.browser_data import (
     BrowserClaudeUsageService,
     BrowserClaudeBillingService,
     BrowserGitHubCopilotService,
+    BrowserOpenRouterService,
 )
 from services import local_server
 from gui.widgets import ServiceCard, COLORS
@@ -23,6 +24,7 @@ SERVICES = [
     ("browser_claude_usage",   BrowserClaudeUsageService()),
     ("browser_claude_billing", BrowserClaudeBillingService()),
     ("browser_github_copilot", BrowserGitHubCopilotService()),
+    ("browser_openrouter",     BrowserOpenRouterService()),
 ]
 
 # Mapping: service key → DATA_STORE source key (for live browser polling)
@@ -31,6 +33,7 @@ BROWSER_SERVICE_SOURCES = {
     "browser_claude_usage":   "claude_usage",
     "browser_claude_billing": "claude_billing",
     "browser_github_copilot": "github_copilot",
+    "browser_openrouter":     "openrouter",
 }
 
 

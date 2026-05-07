@@ -34,7 +34,7 @@ xattr -dr com.apple.quarantine dist/AI額度監控.app
 
 **瀏覽器路徑（啟用中）：**
 1. 使用者將 `ai-monitor-client.js` 安裝為 Tampermonkey 使用者腳本
-2. 腳本抓取頁面資料（OpenAI 帳單、claude.ai 用量、platform.claude.com 帳單、GitHub Copilot 設定），並以 JSON 格式 POST 至 `http://localhost:7890/update`
+2. 腳本抓取頁面資料（OpenAI 帳單、claude.ai 用量、platform.claude.com 帳單、GitHub Copilot 設定、OpenRouter activity / credits），並以 JSON 格式 POST 至 `http://localhost:7890/update`
 3. `services/local_server.py` 接收 POST 請求，以 `source` 欄位為鍵儲存至模組層級的 `DATA_STORE` 字典
 4. `MainApp._poll_browser_live()` 每 1.5 秒執行一次，檢查 `DATA_STORE` 是否有新時間戳，並啟動執行緒呼叫 `BrowserXxxService.fetch()` 讀取資料
 5. 結果放入 `_result_queue`；`_poll_queue()` 每 200ms 在主執行緒呼叫 `ServiceCard.update_result()` 更新 UI
@@ -52,9 +52,9 @@ xattr -dr com.apple.quarantine dist/AI額度監控.app
 | `gui/widgets.py` | `ServiceCard` 小工具，含 `update_result()`、`set_loading()`。`_format_data()` 依 `service_name` 字串分支處理顯示邏輯；`COLORS` 字典定義深色主題（Catppuccin 風格）；`SERVICE_ACCENTS` 定義各服務卡片頂部色條 |
 | `services/base.py` | `BaseService` 抽象基底類別，定義 `fetch(config) → ServiceResult`。`ServiceResult` 為 dataclass，包含 `service_name`、`success`、`data: dict`、`error` |
 | `services/local_server.py` | 監聽 `127.0.0.1:7890` 的 `ThreadingHTTPServer`。模組層級的 `DATA_STORE: dict[str, dict]` 為共享資料庫；公開 API：`start(port)` / `stop()` / `is_running()` / `get_data(key)` / `request_refresh()` |
-| `services/browser_data.py` | 四個 `BaseService` 子類別（每個監控頁面一個），從 `local_server.DATA_STORE` 讀取資料，並標記 `updated_at`；若資料超過 10 分鐘未更新則顯示過期警告 |
+| `services/browser_data.py` | 五個 `BaseService` 子類別（每個監控頁面一個），從 `local_server.DATA_STORE` 讀取資料，並標記 `updated_at`；若資料超過 10 分鐘未更新則顯示過期警告 |
 | `config/manager.py` | `ConfigManager` 讀寫 `~/.config/ai-quota-monitor/config.json`。敏感欄位（token、API 金鑰）在磁碟上以 Base64 編碼儲存（非加密）。`load()` 會將已儲存設定與 `DEFAULT_CONFIG` 合併，確保新增的鍵永遠有預設值 |
-| `ai-monitor-client.js` | Tampermonkey 使用者腳本。執行各頁面的抓取器（`parseOpenAIBilling`、`parseClaudeUsage`、`parseClaudeBilling`、`parseGitHubCopilot`），並 POST 至本地伺服器。頁面內有浮動 UI（📊 按鈕）可查看狀態與設定 |
+| `ai-monitor-client-v4.3.js` | Tampermonkey 使用者腳本（v4.3 = v4.1 + OpenRouter）。透過 fetch / XHR hook 攔截 API 回應，由 `transformOpenAI` / `transformClaudeUsage` / `transformClaudeBilling` / `transformGitHubCopilot` / `transformOpenRouter` 轉成標準欄位，POST 至本地伺服器。頁面右下角有浮動 ⚡ 圓點顯示連線狀態 |
 | `desktop_widget/tray.py` | `SystemTray` 使用 `pystray`。在 macOS 上必須呼叫 `icon.run_detached()`（不能在執行緒中呼叫 `icon.run()`），因為 AppKit 需要主執行緒，而主執行緒已被 tkinter 佔用 |
 
 ### 設定檔位置

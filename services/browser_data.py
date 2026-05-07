@@ -2,11 +2,12 @@
 瀏覽器資料服務 — 從 local_server.DATA_STORE 讀取
 Tampermonkey 注入的頁面資料。
 
-四個服務類別分別對應四個被監控的頁面：
-  - BrowserOpenAIService      → openai_billing
-  - BrowserClaudeUsageService → claude_usage
+五個服務類別分別對應五個被監控的頁面：
+  - BrowserOpenAIService        → openai_billing
+  - BrowserClaudeUsageService   → claude_usage
   - BrowserClaudeBillingService → claude_billing
   - BrowserGitHubCopilotService → github_copilot
+  - BrowserOpenRouterService    → openrouter
 """
 from __future__ import annotations
 from datetime import datetime
@@ -124,6 +125,28 @@ class BrowserClaudeBillingService(BaseService):
 class BrowserGitHubCopilotService(BaseService):
     name = "GitHub Copilot (瀏覽器)"
     source_key = "github_copilot"
+
+    def fetch(self, config: dict) -> ServiceResult:
+        raw = local_server.get_data(self.source_key)
+        if not raw:
+            return _base_not_connected(self.name)
+
+        data = dict(raw)
+        recv = data.get("received_at", "")
+        data["updated_at"] = _ts_display(recv)
+        warn = _stale_warning(recv)
+        if warn:
+            data["stale_warning"] = warn
+
+        return ServiceResult(service_name=self.name, success=True, data=data)
+
+
+# ─────────────────────────────────────────────────────
+#  OpenRouter
+# ─────────────────────────────────────────────────────
+class BrowserOpenRouterService(BaseService):
+    name = "OpenRouter (瀏覽器)"
+    source_key = "openrouter"
 
     def fetch(self, config: dict) -> ServiceResult:
         raw = local_server.get_data(self.source_key)

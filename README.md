@@ -13,6 +13,7 @@
 | **Claude.ai 用量** | claude.ai | 工作階段配額、每週配額、**額外用量（已花費／上限／餘額／自動儲值）** |
 | **Claude API 帳單** | platform.claude.com | 帳戶餘額、方案資訊、本月用量 |
 | **GitHub Copilot** | github.com | Premium Requests 用量、重置日期 |
+| **OpenRouter** | openrouter.ai | 帳戶餘額、本月花費、請求數、Tokens |
 
 ---
 

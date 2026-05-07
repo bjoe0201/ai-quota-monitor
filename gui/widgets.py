@@ -28,6 +28,7 @@ SERVICE_ACCENTS = {
     "Claude.ai 用量 (瀏覽器)": "#c6a0f6",  # mauve
     "Claude API 帳單 (瀏覽器)":"#cba6f7",  # lavender
     "GitHub Copilot (瀏覽器)": "#a6e3a1",  # green
+    "OpenRouter (瀏覽器)":     "#7287fd",  # lavender (Catppuccin)
 }
 
 
@@ -484,6 +485,22 @@ class ServiceCard(tk.Frame):
                 rows.append(("重置於", f"{data['resets_in_days']} 天後"))
             if data.get("next_billing"):
                 rows.append(("下次計費", data["next_billing"]))
+
+        elif service_name == "OpenRouter (瀏覽器)":
+            self._browser_header_rows(data, rows)
+            if data.get("parse_error"):
+                rows.append(("⚠ 解析失敗", "", COLORS["error"]))
+                rows.append((str(data["parse_error"]), "", COLORS["error"]))
+            if "balance_usd" in data:
+                rows.append(("帳戶餘額", f"${data['balance_usd']:.2f}", COLORS["green"]))
+            if "month_spend_usd" in data:
+                rows.append(("本月花費", f"${data['month_spend_usd']:.4f}"))
+            if data.get("month_requests") is not None:
+                rows.append(("本月請求", f"{data['month_requests']:,} 次"))
+            if data.get("month_tokens") is not None:
+                rows.append(("本月 Tokens", format_tokens(int(data["month_tokens"]))))
+            if data.get("top_model"):
+                rows.append(("主要模型", str(data["top_model"])[:32]))
 
         if not rows:
             rows.append(("無資料", "", COLORS["subtext"]))

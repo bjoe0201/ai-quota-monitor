@@ -279,6 +279,22 @@ class CompactServiceCard(tk.Frame):
             if data.get("next_billing"):
                 rows.append(("下次計費", data["next_billing"]))
 
+        elif service_name == "OpenRouter (瀏覽器)":
+            self._browser_header(data, rows)
+            if data.get("parse_error"):
+                rows.append(("⚠ 解析失敗", "", COLORS["error"]))
+                rows.append((str(data["parse_error"]), "", COLORS["error"]))
+            if "balance_usd" in data:
+                rows.append(("帳戶餘額", f"${data['balance_usd']:.2f}", COLORS["green"]))
+            if "month_spend_usd" in data:
+                rows.append(("本月花費", f"${data['month_spend_usd']:.4f}"))
+            if data.get("month_requests") is not None:
+                rows.append(("本月請求", f"{data['month_requests']:,} 次"))
+            if data.get("month_tokens") is not None:
+                rows.append(("本月 Tokens", format_tokens(int(data["month_tokens"]))))
+            if data.get("top_model"):
+                rows.append(("主要模型", str(data["top_model"])[:32]))
+
         if not rows:
             rows.append(("無資料", "", WIDGET_SUBTEXT))
 

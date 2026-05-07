@@ -60,6 +60,9 @@ DEFAULT_CONFIG = {
         },
         "browser_github_copilot": {
             "enabled": True
+        },
+        "browser_openrouter": {
+            "enabled": True
         }
     }
 }
