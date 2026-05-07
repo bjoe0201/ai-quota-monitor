@@ -164,9 +164,18 @@ class _Handler(BaseHTTPRequestHandler):
         data["received_at"] = datetime.now().isoformat()
 
         with _store_lock:
-            DATA_STORE[source] = data
+            # Merge on top of existing data so that multiple pages sharing
+            # the same source key (e.g. openrouter /activity + /settings/credits)
+            # do not overwrite each other's fields.
+            existing = DATA_STORE.get(source, {})
+            merged = {**existing, **data}
+            # If new data doesn't carry parse_error, clear any stale error
+            # (e.g. a previous failed DOM parse followed by a successful one)
+            if 'parse_error' not in data:
+                merged.pop('parse_error', None)
+            DATA_STORE[source] = merged
 
-        _append_log(data)
+        _append_log(DATA_STORE[source])
         self._send(200, json.dumps({"ok": True, "source": source}).encode())
 
     def log_message(self, fmt, *args):

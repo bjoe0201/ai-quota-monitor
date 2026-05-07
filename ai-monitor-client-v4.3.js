@@ -528,10 +528,10 @@
         const path = location.pathname;
 
         if (path.startsWith('/settings/credits')) {
-            // 餘額：找包含 $ + flip-digit 容器的標題
-            // 頁面只有一個這種翻頁數字（餘額），用「class 包含 text-4xl + 兄弟有翻頁容器」定位
-            const candidates = document.querySelectorAll('span.text-4xl');
             let balance = null;
+
+            // 方法 A：翻頁動畫格式（flex-row-reverse + translateY）
+            const candidates = document.querySelectorAll('span.text-4xl');
             for (const span of candidates) {
                 const flipped = _parseFlipDigits(span);
                 if (flipped !== null && /^\d+\.\d+$/.test(flipped)) {
@@ -539,6 +539,39 @@
                     break;
                 }
             }
+
+            // 方法 B：靜態大字體文字 fallback（頁面改版後常見格式）
+            if (balance === null) {
+                const bigEls = document.querySelectorAll(
+                    'p.text-4xl, span.text-4xl, p.text-3xl, span.text-3xl, p.text-5xl, span.text-5xl'
+                );
+                for (const el of bigEls) {
+                    const text = (el.textContent || '').trim().replace(/[$,\s]/g, '');
+                    const val = parseFloat(text);
+                    if (isFinite(val) && val >= 0 && val < 100000) {
+                        balance = val;
+                        break;
+                    }
+                }
+            }
+
+            // 方法 C：全頁搜尋 "$ XX.XX" 文字節點（最後手段）
+            if (balance === null && document.body) {
+                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+                let node;
+                while ((node = walker.nextNode())) {
+                    const text = (node.textContent || '').trim();
+                    const m = text.match(/^\$\s*([\d,]+\.\d{2})$/);
+                    if (m) {
+                        const val = parseFloat(m[1].replace(/,/g, ''));
+                        if (isFinite(val) && val >= 0) {
+                            balance = val;
+                            break;
+                        }
+                    }
+                }
+            }
+
             if (balance !== null && isFinite(balance)) {
                 fields.balance_usd = balance;
             } else {
