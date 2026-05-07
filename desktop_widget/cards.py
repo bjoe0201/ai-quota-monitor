@@ -52,6 +52,13 @@ class CompactServiceCard(tk.Frame):
             font=("Segoe UI", 9, "bold"),
         ).pack(side="left")
 
+        self.time_label = tk.Label(
+            header, text="",
+            fg=WIDGET_SUBTEXT, bg=COLORS["card_bg"],
+            font=("Segoe UI", 7),
+        )
+        self.time_label.pack(side="right")
+
         # 分隔線
         tk.Frame(self, bg=COLORS["card_border"], height=1).pack(fill="x")
 
@@ -302,6 +309,6 @@ class CompactServiceCard(tk.Frame):
 
     def _browser_header(self, data: dict, rows: list):
         if data.get("updated_at"):
-            rows.append(("更新時間", data["updated_at"], WIDGET_SUBTEXT))
+            self.time_label.config(text=data["updated_at"])
         if data.get("stale_warning"):
             rows.append((data["stale_warning"], "", COLORS["warning"]))

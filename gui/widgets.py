@@ -122,6 +122,13 @@ class ServiceCard(tk.Frame):
             font=("Segoe UI", 10, "bold"),
         ).pack(side="left")
 
+        self.time_label = tk.Label(
+            header, text="",
+            fg=COLORS["subtext"], bg=COLORS["card_bg"],
+            font=("Segoe UI", 8),
+        )
+        self.time_label.pack(side="right")
+
         # Divider
         tk.Frame(self, bg=COLORS["card_border"], height=1).pack(fill="x", padx=0)
 
@@ -509,6 +516,6 @@ class ServiceCard(tk.Frame):
 
     def _browser_header_rows(self, data: dict, rows: list):
         if data.get("updated_at"):
-            rows.append(("更新時間", data["updated_at"], COLORS["subtext"]))
+            self.time_label.config(text=data["updated_at"])
         if data.get("stale_warning"):
             rows.append((data["stale_warning"], "", COLORS["warning"]))
