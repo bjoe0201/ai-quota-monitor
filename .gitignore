@@ -8,16 +8,15 @@ dist/
 build/
 *.spec.bak
 
-# PyInstaller output
-dist/
-build/
+# PyInstaller output (dist/ already listed above)
 
 # User config (contains API keys / tokens — never commit)
 config.json
 *.config.json
 
-# Runtime data log (contains personal billing/usage data — never commit)
+# Runtime data / logs (contains personal billing/usage data — never commit)
 data_log.json
+*.log
 
 # Claude Code project settings (may contain local paths)
 .claude/
@@ -29,6 +28,9 @@ PLANS/*.png
 # Environment
 .env
 .env.*
+venv/
+.venv/
+env/
 
 # OS
 .DS_Store
@@ -36,7 +38,7 @@ Thumbs.db
 desktop.ini
 
 # IDE
-.vscode/
+.vscode/settings.json
 .idea/
 *.swp
 *.swo
