@@ -1,13 +1,15 @@
 // ==UserScript==
-// @name         AI Quota Monitor Client v4
+// @name         AI Quota Monitor Client v4.4
 // @namespace    https://github.com/ai-quota-monitor
-// @version      4.0.0
-// @description  API 攔截版：透過 fetch/XHR hook 直接從 API response 提取額度資料，零 DOM 依賴
+// @version      4.4.0
+// @description  v4.1 + OpenRouter 支援（API 攔截版，零 DOM 依賴）
 // @author       AI Quota Monitor
 // @match        https://platform.openai.com/settings/organization/billing/overview*
 // @match        https://claude.ai/settings/usage*
 // @match        https://platform.claude.com/settings/billing*
-// @match        https://github.com/settings/billing/premium_requests_usage*
+// @match        https://github.com/settings/copilot/features*
+// @match        https://openrouter.ai/activity*
+// @match        https://openrouter.ai/settings/credits*
 // @run-at       document-start
 // @noframes
 // @grant        unsafeWindow
@@ -46,8 +48,14 @@
         'github.com': {
             key: 'github_copilot',
             label: 'Copilot',
-            expectedPath: '/settings/billing/premium_requests_usage',
+            expectedPath: '/settings/copilot/features',
             refreshInterval: 2 * 60 * 1000,  // 10 分鐘
+        },
+        'openrouter.ai': {
+            key: 'openrouter',
+            label: 'OpenRouter',
+            expectedPath: ['/activity', '/settings/credits'],   // 兩個頁面共用同一 source
+            refreshInterval: 5 * 60 * 1000,
         },
     };
 
@@ -55,7 +63,8 @@
     if (!PAGE) return;
 
     function isOnExpectedPage() {
-        return location.pathname.startsWith(PAGE.expectedPath);
+        const paths = Array.isArray(PAGE.expectedPath) ? PAGE.expectedPath : [PAGE.expectedPath];
+        return paths.some(p => location.pathname.startsWith(p));
     }
 
     // ─────────────────────────────────────────────
@@ -63,7 +72,7 @@
     // ─────────────────────────────────────────────
     const config = {
         server_url: GM_getValue('aimon_server', 'http://localhost:7890'),
-        debug: GM_getValue('aimon_debug', true),   // 首版預設開啟 debug
+        debug: GM_getValue('aimon_debug', false),   // 預設關閉；透過 __aimon.debug(true) 開啟
     };
 
     // ─────────────────────────────────────────────
@@ -82,9 +91,11 @@
     let lastSuccessTime = 0;
     let interceptCount = 0;    // 已攔截的匹配 API 數量
     let _dot = null;
+    let _domObserver = null;
+    let domParseSuccess = false;
     const MERGE_WINDOW = 2000; // 2 秒合併視窗
 
-    const LOG_PREFIX = '[AI Monitor v4]';
+    const LOG_PREFIX = '[AI Monitor v4.4]';
 
     // ─────────────────────────────────────────────
     //  DEBUG LOGGER
@@ -454,6 +465,275 @@
     }
 
     // ─────────────────────────────────────────────
+    //  OpenRouter DOM Parser
+    //
+    //  OpenRouter 是 Next.js SSR + RSC，數字直接渲染進 HTML，不發 JSON API。
+    //  因此改用 DOM 解析。
+    //
+    //  - /settings/credits：餘額用「翻頁動畫」結構，每位數字靠
+    //    transform: translateY(Npx) 偏移露出 0–9 中的某格。
+    //    每格高 40px，digit = translateY / 40。
+    //    flex-row-reverse 讓 HTML 順序與視覺相反，需反讀。
+    //  - /activity：Spend / Requests / Tokens 直接是 textContent。
+    // ─────────────────────────────────────────────
+
+    function _parseFlipDigits(rootEl) {
+        // 解析翻頁時鐘式的數字容器，回傳組合後的字串（含小數點）
+        // 結構：<span class="flex-row-reverse"><div translateY=...>...</div>...<div>.</div>...</span>
+        if (!rootEl) return null;
+        const flipper = rootEl.querySelector('.flex-row-reverse');
+        if (!flipper) return null;
+
+        const segments = [];
+        for (const child of flipper.children) {
+            // 數字格：包含 absolute bottom-0 h-[1000%] 的子 div 帶 translateY
+            const inner = child.querySelector('div.absolute');
+            if (inner && inner.style && inner.style.transform) {
+                const m = inner.style.transform.match(/translateY\((-?[\d.]+)px\)/);
+                if (m) {
+                    const px = parseFloat(m[1]);
+                    const digit = Math.round(px / 40);
+                    if (digit >= 0 && digit <= 9) {
+                        segments.push(String(digit));
+                        continue;
+                    }
+                }
+                segments.push('?');
+            } else {
+                // 小數點 / 其他文字
+                const txt = (child.textContent || '').trim();
+                if (txt) segments.push(txt);
+            }
+        }
+        if (!segments.length) return null;
+        // flex-row-reverse 視覺反轉，需反讀
+        return segments.reverse().join('');
+    }
+
+    function _parseTokenAbbrev(text) {
+        // "537K" → 537000, "1.2M" → 1200000, "1234" → 1234
+        const m = text.replace(/,/g, '').match(/^([\d.]+)\s*([KMB])?\s*$/i);
+        if (!m) return null;
+        const n = parseFloat(m[1]);
+        if (!isFinite(n)) return null;
+        const mul = { K: 1e3, M: 1e6, B: 1e9 }[(m[2] || '').toUpperCase()] || 1;
+        return Math.round(n * mul);
+    }
+
+    function parseDOMOpenRouter() {
+        if (PAGE.key !== 'openrouter') return false;
+        if (!isOnExpectedPage()) return false;
+
+        const fields = {};
+        const path = location.pathname;
+
+        if (path.startsWith('/settings/credits')) {
+            let balance = null;
+
+            // 方法 A：翻頁動畫格式（flex-row-reverse + translateY）
+            const candidates = document.querySelectorAll('span.text-4xl');
+            for (const span of candidates) {
+                const flipped = _parseFlipDigits(span);
+                if (flipped !== null && /^\d+\.\d+$/.test(flipped)) {
+                    balance = parseFloat(flipped);
+                    break;
+                }
+            }
+
+            // 方法 B：靜態大字體文字 fallback（頁面改版後常見格式）
+            if (balance === null) {
+                const bigEls = document.querySelectorAll(
+                    'p.text-4xl, span.text-4xl, p.text-3xl, span.text-3xl, p.text-5xl, span.text-5xl'
+                );
+                for (const el of bigEls) {
+                    const text = (el.textContent || '').trim().replace(/[$,\s]/g, '');
+                    const val = parseFloat(text);
+                    if (isFinite(val) && val >= 0 && val < 100000) {
+                        balance = val;
+                        break;
+                    }
+                }
+            }
+
+            // 方法 C：全頁搜尋 "$ XX.XX" 文字節點（最後手段）
+            if (balance === null && document.body) {
+                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+                let node;
+                while ((node = walker.nextNode())) {
+                    const text = (node.textContent || '').trim();
+                    const m = text.match(/^\$\s*([\d,]+\.\d{2})$/);
+                    if (m) {
+                        const val = parseFloat(m[1].replace(/,/g, ''));
+                        if (isFinite(val) && val >= 0 && val < 100000) {
+                            balance = val;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (balance !== null && isFinite(balance)) {
+                fields.balance_usd = balance;
+            } else {
+                fields.parse_error = '無法解析 OpenRouter 餘額（DOM selector 失效，請檢查網頁更新）';
+            }
+        } else if (path.startsWith('/activity')) {
+            // Spend / Requests / Tokens：每張卡片有 <span>Spend</span> 標題 + <span>$0.494</span> 數值
+            // 用標題文字定位，找最近的兄弟數值節點
+            const titleNodes = document.querySelectorAll('span.text-sm.text-slate-11, span.text-slate-11');
+            let foundAny = false;
+            for (const titleSpan of titleNodes) {
+                const label = (titleSpan.textContent || '').trim();
+                // 數值在同一個 .flex.flex-col 容器內的 .text-2xl 兄弟節點
+                const container = titleSpan.parentElement;
+                if (!container) continue;
+                const valueSpan = container.querySelector('span.text-2xl');
+                if (!valueSpan) continue;
+                const valueText = (valueSpan.textContent || '').trim();
+                if (!valueText) continue;
+
+                if (/^Spend$/i.test(label)) {
+                    const m = valueText.match(/([\d.]+)/);
+                    if (m) { fields.month_spend_usd = parseFloat(m[1]); foundAny = true; }
+                } else if (/^Requests?$/i.test(label)) {
+                    const n = _parseTokenAbbrev(valueText);
+                    if (n !== null) { fields.month_requests = n; foundAny = true; }
+                } else if (/^Tokens?$/i.test(label)) {
+                    const n = _parseTokenAbbrev(valueText);
+                    if (n !== null) { fields.month_tokens = n; foundAny = true; }
+                }
+            }
+
+            // 主要模型：找第一個 .text-slate-12.truncate
+            const modelEl = document.querySelector('div.flex span.text-slate-12.truncate');
+            if (modelEl) {
+                const name = (modelEl.textContent || '').trim();
+                if (name) fields.top_model = name;
+            }
+
+            if (!foundAny) {
+                fields.parse_error = '無法解析 OpenRouter Activity（DOM selector 失效，請檢查網頁更新）';
+            }
+        }
+
+        if (Object.keys(fields).length === 0) {
+            return false;
+        }
+
+        dbg('parseDOMOpenRouter: 解析結果', fields);
+        merge('openrouter', fields);
+        domParseSuccess = !fields.parse_error;
+        return true;
+    }
+
+    function installDOMObserverOpenRouter() {
+        if (PAGE.key !== 'openrouter') return;
+
+        // 立即嘗試一次（SSR 通常已渲染完成）
+        if (parseDOMOpenRouter()) {
+            // 再延遲解析一次，等翻頁動畫穩定（translateY 動畫約 1–2 秒）
+            setTimeout(parseDOMOpenRouter, 2500);
+            return;
+        }
+
+        // 沒抓到 → 用 MutationObserver 等元素出現
+        dbg('installDOMObserverOpenRouter: 啟動 MutationObserver');
+        let observer = new MutationObserver(() => {
+            if (parseDOMOpenRouter()) {
+                setTimeout(parseDOMOpenRouter, 2500);  // 動畫穩定後再讀一次
+                observer.disconnect();
+                observer = null;
+            }
+        });
+        observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+
+        setTimeout(() => {
+            if (observer) {
+                observer.disconnect();
+                observer = null;
+                dbg('installDOMObserverOpenRouter: 30s 逾時');
+                // 逾時也送一筆錯誤狀態
+                merge('openrouter', { parse_error: '30 秒內未偵測到 OpenRouter 數值節點' });
+            }
+        }, 30000);
+    }
+
+    // ── GitHub Copilot DOM Parsing ─────────────────
+    function parseDOMGitHubCopilot() {
+        if (PAGE.key !== 'github_copilot') return false;
+        if (!isOnExpectedPage()) return false;
+
+        const container = document.getElementById('copilot-overages-usage');
+        if (!container) {
+            dbg('parseDOMGitHubCopilot: #copilot-overages-usage 不存在');
+            return false;
+        }
+
+        // 方法 A：讀進度條 style.width（最可靠）
+        let percent = null;
+        const progressItem = container.querySelector('#copilot_overages_progress_bar .Progress-item');
+        if (progressItem) {
+            const m = (progressItem.style.width || '').match(/([\d.]+)%/);
+            if (m) percent = parseFloat(m[1]);
+        }
+
+        // 方法 B：讀百分比文字 fallback
+        if (percent === null) {
+            for (const div of container.querySelectorAll('div')) {
+                if (div.children.length === 0) {
+                    const m = div.textContent.trim().match(/^([\d.]+)%$/);
+                    if (m) { percent = parseFloat(m[1]); break; }
+                }
+            }
+        }
+
+        if (percent === null) {
+            dbg('parseDOMGitHubCopilot: 無法提取百分比');
+            return false;
+        }
+
+        const INCLUDED_TOTAL = 1500;
+        const fields = {
+            included_percent:  Math.round(percent * 10) / 10,
+            included_total:    INCLUDED_TOTAL,
+            included_consumed: Math.round(percent / 100 * INCLUDED_TOTAL * 10) / 10,
+            billed_usd:        0,
+        };
+        dbg('parseDOMGitHubCopilot: 解析成功', fields);
+        merge('github_copilot', fields);
+        domParseSuccess = true;
+        return true;
+    }
+
+    function installDOMObserver() {
+        if (PAGE.key !== 'github_copilot') return;
+        if (_domObserver) return;
+        if (parseDOMGitHubCopilot()) return;  // SSR 已有資料直接解析
+
+        dbg('installDOMObserver: 啟動 MutationObserver 等待 #copilot-overages-usage');
+        _domObserver = new MutationObserver((mutations, obs) => {
+            for (const mutation of mutations) {
+                if (mutation.type !== 'childList') continue;
+                for (const node of mutation.addedNodes) {
+                    if (node.nodeType !== Node.ELEMENT_NODE) continue;
+                    if (node.id === 'copilot-overages-usage' ||
+                        (node.querySelector && node.querySelector('#copilot-overages-usage'))) {
+                        obs.disconnect();
+                        _domObserver = null;
+                        parseDOMGitHubCopilot();
+                        return;
+                    }
+                }
+            }
+        });
+        _domObserver.observe(document.body || document.documentElement, { childList: true, subtree: true });
+
+        setTimeout(() => {
+            if (_domObserver) { _domObserver.disconnect(); _domObserver = null; dbg('installDOMObserver: 30s 逾時'); }
+        }, 30000);
+    }
+
+    // ─────────────────────────────────────────────
     //  INTERCEPT RULES
     //
     //  ⚠️ 用 debug 模式確認真正的 URL pattern 後再縮窄
@@ -497,7 +777,13 @@
             { p: /\/copilot\/usage/i,                            t: transformGitHubCopilot },
             { p: /copilot.*metered.*usage/i,                     t: transformGitHubCopilot },
             { p: /\/settings\/billing.*copilot/i,                t: transformGitHubCopilot },
+            { p: /\/settings\/copilot.*usage/i,                  t: transformGitHubCopilot },
+            { p: /\/settings\/copilot.*billing/i,                t: transformGitHubCopilot },
+            { p: /copilot.*features.*usage/i,                    t: transformGitHubCopilot },
+            { p: /copilot.*premium.*request/i,                   t: transformGitHubCopilot },
         ],
+        // OpenRouter 不走 fetch/XHR JSON（SSR + RSC 字串流），改由 parseDOMOpenRouter 處理
+        openrouter: [],
     };
 
     // Only activate rules for current page
@@ -548,6 +834,19 @@
     }
 
     // ─────────────────────────────────────────────
+    //  URL PRE-FILTER（效能關鍵：在 clone/parse 之前過濾）
+    // ─────────────────────────────────────────────
+    function isUrlRelevant(url) {
+        // 1. 匹配任何 active rule → 一定相關
+        if (activeRules.some(rule => rule.p.test(url))) return true;
+        // 2. debug 模式 → 額外放行含有相關關鍵字的 URL（用於發現新 API endpoint）
+        if (!config.debug) return false;
+        const lower = url.toLowerCase();
+        return ['billing', 'usage', 'credit', 'cost', 'limit', 'quota', 'balance', 'invoice']
+            .some(kw => lower.includes(kw));
+    }
+
+    // ─────────────────────────────────────────────
     //  INTERCEPT HANDLER
     // ─────────────────────────────────────────────
     function handleInterceptedResponse(url, json) {
@@ -561,7 +860,8 @@
 
                 dbgGroup('✅ 匹配 API: ' + url);
                 if (config.debug) {
-                    console.log('JSON preview:', JSON.stringify(json).substring(0, 800));
+                    // 直接印出物件，瀏覽器 Console 原生支援展開；避免 JSON.stringify 同步序列化大物件
+                    console.log('JSON preview:', json);
                 }
 
                 try {
@@ -578,15 +878,9 @@
         }
 
         if (!matched && config.debug) {
-            // Debug: 顯示未匹配但可能相關的 API
-            const urlLower = url.toLowerCase();
-            const interesting = ['billing', 'usage', 'credit', 'subscription', 'cost',
-                                 'plan', 'quota', 'limit', 'copilot', 'premium',
-                                 'organization', 'balance', 'invoice', 'payment'];
-            if (interesting.some(kw => urlLower.includes(kw))) {
-                dbg('🔍 可能相關但未匹配:', url);
-                console.log('   JSON preview:', JSON.stringify(json).substring(0, 300));
-            }
+            // isUrlRelevant 在 debug 模式下已過濾關鍵字，能走到這裡代表 URL 含有相關關鍵字
+            dbg('🔍 可能相關但未匹配:', url);
+            console.log('   JSON preview:', json);
         }
     }
 
@@ -610,8 +904,8 @@
             }
 
             return _realFetch.apply(this, args).then(response => {
-                // 只處理成功的 JSON response
-                if (response.ok) {
+                // 【效能修正】先檢查 URL 是否相關，不相關的完全跳過 clone + parse
+                if (response.ok && isUrlRelevant(url)) {
                     const ct = response.headers.get('content-type') || '';
                     if (ct.includes('json')) {
                         try {
@@ -656,12 +950,14 @@
         const _origSend = XHR.prototype.send;
         XHR.prototype.send = function (...args) {
             this.addEventListener('load', function () {
-                if (this.status >= 200 && this.status < 300) {
+                const url = this._aimon_url || '';
+                // 【效能修正】先檢查 URL，不相關就跳過同步 JSON.parse
+                if (isUrlRelevant(url) && this.status >= 200 && this.status < 300) {
                     const ct = (this.getResponseHeader('content-type') || '');
                     if (ct.includes('json') && this.responseText) {
                         try {
                             const json = JSON.parse(this.responseText);
-                            handleInterceptedResponse(this._aimon_url || '', json);
+                            handleInterceptedResponse(url, json);
                         } catch (e) {}
                     }
                 }
@@ -723,7 +1019,7 @@
             'user-select:none',
         ].join(';');
         _dot.textContent = '⚡';
-        _dot.title = PAGE.label + ' v4 — 攔截模式\n點擊重新載入頁面';
+        _dot.title = PAGE.label + ' v4.4 — 攔截模式\n點擊重新載入頁面';
         _dot.addEventListener('click', () => {
             location.reload();
         });
@@ -759,6 +1055,15 @@
             // 但清空 pending / 重置 UI 狀態
             interceptCount = 0;
             setStatus('listening');
+            if (isOnExpectedPage() && PAGE.key === 'github_copilot') {
+                if (_domObserver) { _domObserver.disconnect(); _domObserver = null; }
+                domParseSuccess = false;
+                installDOMObserver();
+            }
+            if (isOnExpectedPage() && PAGE.key === 'openrouter') {
+                domParseSuccess = false;
+                installDOMObserverOpenRouter();
+            }
         }, 2000);
     }
 
@@ -780,7 +1085,7 @@
     // ─────────────────────────────────────────────
     function setupTimeoutWarning() {
         setTimeout(() => {
-            if (interceptCount === 0) {
+            if (interceptCount === 0 && !domParseSuccess) {
                 dbg('⚠️ 15 秒內未攔截到任何匹配 API');
                 setStatus('idle');
                 if (_dot) {
@@ -841,7 +1146,7 @@
     // ─────────────────────────────────────────────
 
     // Phase 1: 在 document-start 立刻安裝 hook（此時 DOM 未就緒）
-    dbg('=== AI Quota Monitor v4 啟動 ===');
+    dbg('=== AI Quota Monitor v4.4 啟動 ===');
     dbg('頁面:', PAGE.label, '(' + PAGE.key + ')');
     dbg('規則數:', activeRules.length);
 
@@ -859,6 +1164,14 @@
         setupSPADetection();
         setupPeriodicRefresh();
         setupTimeoutWarning();
+        installDOMObserver();
+        installDOMObserverOpenRouter();
+        document.addEventListener('turbo:load', () => {
+            if (!isOnExpectedPage() || PAGE.key !== 'github_copilot') return;
+            if (_domObserver) { _domObserver.disconnect(); _domObserver = null; }
+            domParseSuccess = false;
+            installDOMObserver();
+        }, { passive: true });
         dbg('✓ 所有模組已初始化');
     }
 
