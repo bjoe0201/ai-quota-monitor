@@ -34,7 +34,9 @@ from services.base import ServiceResult
 
 from desktop_widget.clock import DigitalClock
 from desktop_widget.cards import CompactServiceCard
-from desktop_widget.styles import COLORS, WIDGET_WIDTH, WIDGET_LABEL, WIDGET_TEXT
+from desktop_widget.styles import (
+    COLORS, WIDGET_WIDTH, WIDGET_LABEL, WIDGET_TEXT, UI_FONT,
+)
 
 
 # ── 服務清單（與 gui/app.py 相同）──────────────────────────────────────────
@@ -62,7 +64,7 @@ SERVICE_NAMES = {
     "browser_openrouter":     "OpenRouter (瀏覽器)",
 }
 
-_WIDGET_VERSION = "v1.11.0"
+_WIDGET_VERSION = "v1.12.0"
 
 _PAGE_URLS = [
     ("OpenAI 帳單",     "https://platform.openai.com/settings/organization/billing/overview?oclaw=1"),
@@ -383,6 +385,23 @@ class DesktopWidget(tk.Tk):
         self._setup_drag(self.clock)
         self._setup_drag(self)
 
+        # ── 全部展開 / 全部收合（疊在時鐘左下角）─────────────────────────
+        expand_btn = tk.Label(
+            self.clock, text="▾▾",
+            fg=WIDGET_TEXT, bg=COLORS["card_bg"],
+            font=(UI_FONT, 11, "bold"), cursor="hand2",
+        )
+        expand_btn.place(relx=0.0, rely=1.0, x=10, y=-6, anchor="sw")
+        expand_btn.bind("<Button-1>", lambda e: self._set_all_collapsed(False))
+
+        collapse_btn = tk.Label(
+            self.clock, text="▸▸",
+            fg=WIDGET_LABEL, bg=COLORS["card_bg"],
+            font=(UI_FONT, 11, "bold"), cursor="hand2",
+        )
+        collapse_btn.place(relx=0.0, rely=1.0, x=38, y=-6, anchor="sw")
+        collapse_btn.bind("<Button-1>", lambda e: self._set_all_collapsed(True))
+
         # 分隔線
         tk.Frame(self, bg=COLORS["card_border"], height=1).pack(fill="x")
 
@@ -390,6 +409,9 @@ class DesktopWidget(tk.Tk):
         cards_outer = tk.Frame(self, bg=COLORS["bg"])
         cards_outer.pack(fill="both", expand=True)
 
+        collapsed_cfg = self.config_data.get("widget", {}).get(
+            "collapsed_cards", {}
+        )
         self.cards: dict[str, CompactServiceCard] = {}
         for key, _ in SERVICES:
             card = CompactServiceCard(cards_outer, SERVICE_NAMES[key])
@@ -397,6 +419,13 @@ class DesktopWidget(tk.Tk):
             tk.Frame(cards_outer, bg=COLORS["card_border"], height=1).pack(fill="x")
             self.cards[key] = card
             self._setup_drag(card)
+            # Restore previous collapse state
+            if collapsed_cfg.get(key, False):
+                card.toggle_collapsed()
+            card.bind(
+                "<<CardToggled>>",
+                lambda e, k=key: self._on_card_toggled(k),
+            )
 
         # ── 狀態列 ────────────────────────────────────────────────────────
         status_bar = tk.Frame(self, bg=COLORS["title_bg"], pady=4)
@@ -671,6 +700,20 @@ class DesktopWidget(tk.Tk):
         self.geometry(f"{WIDGET_WIDTH}x{h}+{x}+{y}")
         if self._desktop_level:
             self._sink_to_bottom()
+
+    def _set_all_collapsed(self, collapsed: bool):
+        for card in self.cards.values():
+            if card._collapsed != collapsed:
+                card.toggle_collapsed()
+        # toggle_collapsed will fire <<CardToggled>> per card → save handled there
+        self.after(30, self._auto_resize)
+
+    def _on_card_toggled(self, key: str):
+        wc = self.config_data.setdefault("widget", {})
+        states = wc.setdefault("collapsed_cards", {})
+        states[key] = self.cards[key]._collapsed
+        self.config_manager.save()
+        self.after(20, self._auto_resize)
 
     def _update_status_from_cards(self):
         any_warn = any(

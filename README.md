@@ -336,6 +336,7 @@ chmod 600 ~/.config/ai-quota-monitor/config.json
 
 | 版本 | 主要變更 |
 |------|----------|
+| **v1.12.0** | 卡片標題列加入展開/收合切換鈕並使用服務 accent 色染色；時鐘左下角新增「全部展開／收合」icon；翻頁時鐘改為雙白卡片風格；KV 改為兩兩成對 pair 排版；重置時間 pill 移至進度條同行；移除 Claude.ai 重複的「每週限額」 |
 | **v4.2.0** | 右鍵選單新增 Chrome / Firefox 分類子選單；更新 GitHub Copilot URL；調整使用量與計費數據顯示邏輯 |
 | **v4.1.0** | JS 新增 URL 前置過濾與精準解析，效能優化；改善 Chrome 卡頓問題 |
 | **v4.0.0** | JS 改採 API 攔截架構（fetch/XHR hook），零 DOM 依賴，不受頁面改版影響 |

@@ -7,7 +7,7 @@ import tkinter as tk
 from services.base import ServiceResult
 from desktop_widget.styles import (
     COLORS, SERVICE_ACCENTS, format_tokens, ProgressBar,
-    UI_FONT, MONO_FONT,
+    UI_FONT, MONO_FONT, header_tint,
     COMPACT_CARD_PAD_X, COMPACT_CARD_PAD_Y,
     WIDGET_LABEL, WIDGET_TEXT, WIDGET_SUBTEXT,
     COMPACT_FONT_TITLE, COMPACT_FONT_HERO, COMPACT_FONT_HERO_UNIT,
@@ -53,16 +53,27 @@ class CompactServiceCard(tk.Frame):
 
     def _build_ui(self):
         accent = SERVICE_ACCENTS.get(self.service_name, COLORS["info"])
+        header_bg = header_tint(self.service_name)
+        self._collapsed = False
 
-        # Header
-        header = tk.Frame(self, bg=COLORS["card_bg"],
-                          padx=COMPACT_CARD_PAD_X, pady=6)
+        # Header (tinted with service accent for visibility)
+        header = tk.Frame(self, bg=header_bg,
+                          padx=COMPACT_CARD_PAD_X, pady=5)
         header.pack(fill="x")
+
+        # Collapse/expand toggle
+        self.toggle_btn = tk.Label(
+            header, text="▾",
+            fg=accent, bg=header_bg,
+            font=(UI_FONT, 11, "bold"), cursor="hand2", padx=2,
+        )
+        self.toggle_btn.pack(side="left")
+        self.toggle_btn.bind("<Button-1>", lambda e: self.toggle_collapsed())
 
         # 18x18 glyph icon (smaller than main window)
         glyph_text = self._glyph_for(self.service_name)
         glyph = tk.Frame(header, bg=accent, width=18, height=18)
-        glyph.pack(side="left")
+        glyph.pack(side="left", padx=(2, 0))
         glyph.pack_propagate(False)
         tk.Label(glyph, text=glyph_text, bg=accent, fg=COLORS["bg"],
                  font=(MONO_FONT, 7, "bold")).pack(expand=True)
@@ -71,14 +82,14 @@ class CompactServiceCard(tk.Frame):
         tk.Label(
             header,
             text=f"  {self._short_name(self.service_name)}",
-            fg=WIDGET_TEXT, bg=COLORS["card_bg"],
+            fg=WIDGET_TEXT, bg=header_bg,
             font=COMPACT_FONT_TITLE,
         ).pack(side="left")
 
         # Timestamp
         self.time_label = tk.Label(
             header, text="",
-            fg=WIDGET_SUBTEXT, bg=COLORS["card_bg"],
+            fg=WIDGET_SUBTEXT, bg=header_bg,
             font=COMPACT_FONT_TIMESTAMP,
         )
         self.time_label.pack(side="right")
@@ -86,7 +97,7 @@ class CompactServiceCard(tk.Frame):
         # Status dot
         self.status_dot = tk.Label(
             header, text="●",
-            fg=WIDGET_LABEL, bg=COLORS["card_bg"],
+            fg=WIDGET_LABEL, bg=header_bg,
             font=(UI_FONT, 5),
         )
         self.status_dot.pack(side="right", padx=(0, 3))
@@ -101,6 +112,16 @@ class CompactServiceCard(tk.Frame):
         self._show_placeholder("載入中...")
 
     # ── Public ─────────────────────────────────────────────────────────────
+
+    def toggle_collapsed(self):
+        self._collapsed = not self._collapsed
+        if self._collapsed:
+            self.content.pack_forget()
+            self.toggle_btn.config(text="▸")
+        else:
+            self.content.pack(fill="both", expand=True)
+            self.toggle_btn.config(text="▾")
+        self.event_generate("<<CardToggled>>", when="tail")
 
     def update_result(self, result: ServiceResult):
         self._clear()

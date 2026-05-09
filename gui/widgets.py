@@ -58,6 +58,23 @@ SERVICE_ACCENTS = {
 }
 
 
+def _mix_hex(fg: str, bg: str, alpha: float) -> str:
+    """Blend two #rrggbb colors. alpha=0 → bg, 1 → fg."""
+    fr, fgn, fb = int(fg[1:3], 16), int(fg[3:5], 16), int(fg[5:7], 16)
+    br, bgn, bb = int(bg[1:3], 16), int(bg[3:5], 16), int(bg[5:7], 16)
+    r = round(fr * alpha + br * (1 - alpha))
+    g = round(fgn * alpha + bgn * (1 - alpha))
+    b = round(fb * alpha + bb * (1 - alpha))
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
+def header_tint(service_name: str, base_bg: str = None) -> str:
+    """Return a tinted header background based on the service accent color."""
+    accent = SERVICE_ACCENTS.get(service_name, COLORS["info"])
+    bg = base_bg or COLORS["card_bg"]
+    return _mix_hex(accent, bg, 0.18)
+
+
 # ── Font tokens ────────────────────────────────────────────────────────────
 FONT_TITLE      = (UI_FONT, 11, "bold")
 FONT_HERO       = (MONO_FONT, 28, "bold")
@@ -155,33 +172,44 @@ class ServiceCard(tk.Frame):
 
     def _build_ui(self):
         accent = SERVICE_ACCENTS.get(self.service_name, COLORS["info"])
+        header_bg = header_tint(self.service_name)
+        self._collapsed = False
 
-        # Header
-        header = tk.Frame(self, bg=COLORS["card_bg"], padx=16, pady=14)
+        # Header (tinted with service accent for visibility)
+        header = tk.Frame(self, bg=header_bg, padx=16, pady=10)
         header.pack(fill="x")
+
+        # Collapse/expand toggle (▾ open / ▸ collapsed)
+        self.toggle_btn = tk.Label(
+            header, text="▾",
+            fg=accent, bg=header_bg,
+            font=(UI_FONT, 13, "bold"), cursor="hand2", padx=4,
+        )
+        self.toggle_btn.pack(side="left")
+        self.toggle_btn.bind("<Button-1>", lambda e: self.toggle_collapsed())
 
         # 22x22 glyph icon
         glyph_text = self._glyph_for(self.service_name)
         glyph = tk.Frame(header, bg=accent, width=22, height=22)
-        glyph.pack(side="left")
+        glyph.pack(side="left", padx=(2, 0))
         glyph.pack_propagate(False)
         tk.Label(glyph, text=glyph_text, bg=accent, fg=COLORS["bg"],
                  font=(MONO_FONT, 8, "bold")).pack(expand=True)
 
         # Short name
         tk.Label(header, text=f"  {self._short_name(self.service_name)}",
-                 fg=COLORS["text"], bg=COLORS["card_bg"],
+                 fg=COLORS["text"], bg=header_bg,
                  font=FONT_TITLE).pack(side="left")
 
         # Timestamp (right side)
         self.time_label = tk.Label(header, text="",
-                                   fg=COLORS["text_faint"], bg=COLORS["card_bg"],
+                                   fg=COLORS["text_faint"], bg=header_bg,
                                    font=FONT_TIMESTAMP)
         self.time_label.pack(side="right")
 
         # Status dot (right side, before timestamp)
         self.status_dot = tk.Label(header, text="●",
-                                   fg=COLORS["text_dim"], bg=COLORS["card_bg"],
+                                   fg=COLORS["text_dim"], bg=header_bg,
                                    font=(UI_FONT, 6))
         self.status_dot.pack(side="right", padx=(0, 4))
 
@@ -198,6 +226,15 @@ class ServiceCard(tk.Frame):
         self._placeholder.pack(fill="x", pady=2)
 
     # ── Public update methods ──────────────────────────────────────────────
+
+    def toggle_collapsed(self):
+        self._collapsed = not self._collapsed
+        if self._collapsed:
+            self.content_frame.pack_forget()
+            self.toggle_btn.config(text="▸")
+        else:
+            self.content_frame.pack(fill="both", expand=True, pady=(0, 14))
+            self.toggle_btn.config(text="▾")
 
     def update_result(self, result: ServiceResult):
         self._clear_content()

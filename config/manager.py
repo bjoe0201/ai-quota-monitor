@@ -16,6 +16,7 @@ DEFAULT_CONFIG = {
         "y": -32768,
         "opacity": 0.95,
         "desktop_level": True,
+        "collapsed_cards": {},
     },
     "services": {
         "github_copilot": {
