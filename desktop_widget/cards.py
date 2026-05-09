@@ -245,14 +245,14 @@ class CompactServiceCard(tk.Frame):
         left_f = tk.Frame(inner, bg=bg)
         left_f.pack(side="left", fill="x", expand=True)
         tk.Label(left_f, text=left_label, fg=WIDGET_LABEL, bg=bg,
-                 font=COMPACT_FONT_KV_LABEL, anchor="w", width=4).pack(side="left")
+                 font=COMPACT_FONT_KV_LABEL, anchor="w").pack(side="left", padx=(0, 4))
         tk.Label(left_f, text=left_value, fg=WIDGET_TEXT, bg=bg,
                  font=COMPACT_FONT_KV_VALUE, anchor="w").pack(side="left")
 
         right_f = tk.Frame(inner, bg=bg)
         right_f.pack(side="left", fill="x", expand=True)
         tk.Label(right_f, text=right_label, fg=WIDGET_LABEL, bg=bg,
-                 font=COMPACT_FONT_KV_LABEL, anchor="w", width=4).pack(side="left")
+                 font=COMPACT_FONT_KV_LABEL, anchor="w").pack(side="left", padx=(0, 4))
         tk.Label(right_f, text=right_value, fg=WIDGET_TEXT, bg=bg,
                  font=COMPACT_FONT_KV_VALUE, anchor="w").pack(side="left")
 
@@ -275,24 +275,23 @@ class CompactServiceCard(tk.Frame):
                  font=COMPACT_FONT_BAR_LABEL, anchor="w").pack(side="left")
         tk.Label(top, text=f"{percent:.1f}%", fg=color, bg=bg,
                  font=COMPACT_FONT_BAR_PCT, anchor="e").pack(side="right")
+        if reset_text:
+            pill_color = COLORS["warning"] if reset_urgent else COLORS["violet"]
+            pill = tk.Frame(top, bg=bg,
+                            highlightthickness=1, highlightbackground=pill_color)
+            pill.pack(side="left", padx=4)
+            tk.Label(pill, text=f" \u21bb {reset_text} ", fg=pill_color, bg=bg,
+                     font=COMPACT_FONT_RESET_PILL).pack()
 
         pb = ProgressBar(inner, percent=percent, color=color, height=6)
         pb.pack(fill="x", pady=(1, 0))
         self._pbars.append(pb)
 
-        if detail or reset_text:
+        if detail:
             detail_row = tk.Frame(inner, bg=bg)
             detail_row.pack(fill="x")
-            if detail:
-                tk.Label(detail_row, text=detail, fg=WIDGET_SUBTEXT, bg=bg,
-                         font=COMPACT_FONT_BAR_DETAIL, anchor="w").pack(side="left")
-            if reset_text:
-                pill_color = COLORS["warning"] if reset_urgent else COLORS["violet"]
-                pill = tk.Frame(detail_row, bg=bg,
-                                highlightthickness=1, highlightbackground=pill_color)
-                pill.pack(side="right", padx=2)
-                tk.Label(pill, text=f" \u21bb {reset_text} ", fg=pill_color, bg=bg,
-                         font=COMPACT_FONT_RESET_PILL).pack()
+            tk.Label(detail_row, text=detail, fg=WIDGET_SUBTEXT, bg=bg,
+                     font=COMPACT_FONT_BAR_DETAIL, anchor="w").pack(side="left")
 
     @staticmethod
     def _pct_color(pct: float) -> str:
@@ -325,27 +324,25 @@ class CompactServiceCard(tk.Frame):
                     "detail": f"${used:.2f} / ${total:.2f}",
                     "color": self._pct_color(pct),
                 })
-            if "month_usage_usd" in data:
-                rows.append(("本月用量", f"${data['month_usage_usd']:.4f}"))
-            if "hard_limit_usd" in data:
-                rows.append(("月上限", f"${data['hard_limit_usd']:.0f}"))
-            if data.get("tier"):
-                rows.append(("用量等級", data["tier"]))
-            if data.get("auto_recharge"):
-                rows.append(("自動儲值", "已啟用", COLORS["success"]))
+            month_val = f"${data['month_usage_usd']:.4f}" if "month_usage_usd" in data else ""
+            limit_val = f"${data['hard_limit_usd']:.0f}" if "hard_limit_usd" in data else ""
+            if month_val or limit_val:
+                rows.append({
+                    "type": "pair",
+                    "left_label": "本月用量", "left_value": month_val,
+                    "right_label": "月上限", "right_value": limit_val,
+                })
+            tier_val = str(data["tier"]) if data.get("tier") else ""
+            auto_val = "已啟用" if data.get("auto_recharge") else ""
+            if tier_val or auto_val:
+                rows.append({
+                    "type": "pair",
+                    "left_label": "用量等級", "left_value": tier_val,
+                    "right_label": "自動儲值", "right_value": auto_val,
+                })
 
         elif service_name == "Claude.ai 用量 (瀏覽器)":
             self._browser_header(data, rows)
-            if data.get("weekly_percent") is not None:
-                pct = data["weekly_percent"]
-                rows.append({
-                    "type": "hero",
-                    "label": "每週限額",
-                    "value": f"{pct:.0f}",
-                    "unit": "%",
-                    "color": self._pct_color(pct),
-                    "badge": data.get("plan_type"),
-                })
             if data.get("session_percent") is not None:
                 pct = data["session_percent"]
                 reset = data.get("session_reset", "")
@@ -396,14 +393,22 @@ class CompactServiceCard(tk.Frame):
                     "color": COLORS["success"],
                     "badge": str(data["plan"]) if data.get("plan") else None,
                 })
-            if "this_month_usd" in data:
-                rows.append(("本月用量", f"${data['this_month_usd']:.4f}"))
-            if data.get("next_billing"):
-                rows.append(("下次計費", data["next_billing"], COLORS["violet"]))
-            if "monthly_usd" in data:
-                rows.append(("月費", f"${data['monthly_usd']:.2f}"))
-            if "spend_limit_usd" in data:
-                rows.append(("消費上限", f"${data['spend_limit_usd']:.2f}"))
+            month_val = f"${data['this_month_usd']:.4f}" if "this_month_usd" in data else ""
+            next_val = data["next_billing"] if data.get("next_billing") else ""
+            if month_val or next_val:
+                rows.append({
+                    "type": "pair",
+                    "left_label": "本月用量", "left_value": month_val,
+                    "right_label": "下次計費", "right_value": next_val,
+                })
+            monthly_val = f"${data['monthly_usd']:.2f}" if "monthly_usd" in data else ""
+            limit_val = f"${data['spend_limit_usd']:.2f}" if "spend_limit_usd" in data else ""
+            if monthly_val or limit_val:
+                rows.append({
+                    "type": "pair",
+                    "left_label": "月費", "left_value": monthly_val,
+                    "right_label": "消費上限", "right_value": limit_val,
+                })
 
         elif service_name == "GitHub Copilot (瀏覽器)":
             self._browser_header(data, rows)
@@ -446,14 +451,22 @@ class CompactServiceCard(tk.Frame):
                     "value": f"${data['balance_usd']:.2f}",
                     "color": COLORS["success"],
                 })
-            if data.get("month_spend_usd") is not None:
-                rows.append(("本月花費", f"${data['month_spend_usd']:.4f}"))
-            if data.get("month_requests") is not None:
-                rows.append(("請求次數", f"{data['month_requests']:,} 次"))
-            if data.get("month_tokens") is not None:
-                rows.append(("Tokens", format_tokens(int(data["month_tokens"]))))
-            if data.get("top_model"):
-                rows.append(("常用模型", str(data["top_model"])[:20]))
+            spend_val = f"${data['month_spend_usd']:.4f}" if data.get("month_spend_usd") is not None else ""
+            req_val = f"{data['month_requests']:,} 次" if data.get("month_requests") is not None else ""
+            if spend_val or req_val:
+                rows.append({
+                    "type": "pair",
+                    "left_label": "本月花費", "left_value": spend_val,
+                    "right_label": "請求次數", "right_value": req_val,
+                })
+            tokens_val = format_tokens(int(data["month_tokens"])) if data.get("month_tokens") is not None else ""
+            model_val = str(data["top_model"])[:20] if data.get("top_model") else ""
+            if tokens_val or model_val:
+                rows.append({
+                    "type": "pair",
+                    "left_label": "Tokens", "left_value": tokens_val,
+                    "right_label": "常用模型", "right_value": model_val,
+                })
 
         if not rows:
             rows.append(("無資料", "", WIDGET_SUBTEXT))

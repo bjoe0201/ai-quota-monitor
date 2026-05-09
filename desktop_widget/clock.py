@@ -18,7 +18,7 @@ class DigitalClock(tk.Frame):
 
         # Time row: HH:MM (large) + :SS (dimmed)
         time_row = tk.Frame(self, bg=COLORS["card_bg"])
-        time_row.pack(anchor="w", padx=16, pady=(14, 0))
+        time_row.pack(anchor="center", padx=16, pady=(14, 0))
 
         self.time_label = tk.Label(
             time_row, text="--:--",
@@ -40,7 +40,7 @@ class DigitalClock(tk.Frame):
             fg=COLORS["text_dim"], bg=COLORS["card_bg"],
             font=(UI_FONT, 9),
         )
-        self.date_label.pack(anchor="w", padx=16, pady=(2, 12))
+        self.date_label.pack(anchor="center", padx=16, pady=(2, 12))
 
         self._tick()
 
