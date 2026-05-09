@@ -1,46 +1,87 @@
-# AI 額度監控 · v4.4.0
+# AI 額度監控 · 桌面小工具
 
-一個跨平台（Windows / macOS）桌面應用程式，搭配 Tampermonkey 瀏覽器腳本，即時監控各 AI 服務的使用額度與費用。
-另附輕量**桌面小工具**版本，可常駐桌面顯示翻頁時鐘與即時額度。
+> 跨平台（Windows / macOS）桌面小工具 + Tampermonkey 瀏覽器腳本，即時監控 OpenAI、Claude、GitHub Copilot、OpenRouter 的額度與費用。
+
+<div align="center">
+  <img src="PICS/2026-05-09%2015%2040%2018.jpg" alt="桌面小工具完整畫面" width="300">
+</div>
+
+---
+
+## ✨ 功能亮點
+
+- **翻頁時鐘**：動畫翻頁效果顯示目前時間，常駐桌面不遮擋視窗
+- **5 個服務卡片**：Claude.ai、GitHub Copilot、OpenAI、Claude API、OpenRouter
+- **即時同步**：開啟對應網頁，Tampermonkey 腳本自動擷取並推送至小工具
+- **一鍵開啟**：右鍵選單可一鍵開啟所有監控頁面（支援 Chrome / Firefox）
+- **透明度調整**：可設定視窗透明度（0.3 ~ 1.0），融入桌面背景
+- **位置記憶**：拖曳位置自動儲存，支援多螢幕（含負座標）
 
 ---
 
 ## 支援服務
 
-| 服務 | 擷取來源 | 查看項目 |
+| 服務 | 監控來源 | 顯示資訊 |
 |------|----------|----------|
-| **OpenAI 帳單** | platform.openai.com | 帳戶餘額、Credits 使用量、月消費 |
-| **Claude.ai 用量** | claude.ai | 工作階段配額、每週配額、**額外用量（已花費／上限／餘額／自動儲值）** |
-| **Claude API 帳單** | platform.claude.com | 帳戶餘額、方案資訊、本月用量 |
-| **GitHub Copilot** | github.com | Premium Requests 用量、重置日期 |
+| **Claude.ai** | claude.ai/settings/usage | 工作階段用量 %、每週限額 %、額外用量餘額 |
+| **GitHub Copilot** | github.com/settings/billing | Premium Requests 已用 / 總量 / % |
+| **OpenAI** | platform.openai.com/settings/billing | 帳戶餘額、Credits 用量 %、月消費 |
+| **Claude API** | platform.claude.com/settings/billing | 帳戶餘額、本月用量、下次計費日 |
 | **OpenRouter** | openrouter.ai | 帳戶餘額、本月花費、請求數、Tokens |
 
 ---
 
-## 運作原理
+## 螢幕截圖
 
-```
-瀏覽器 (Tampermonkey)          桌面應用程式 (Python)
-        │                               │
-        │  POST /update (資料)  ────►   │  local_server (port 7890)
-        │                               │
-        │  GET /poll?seq=N   ◄────      │  GUI 按「重新整理」
-        │                               │
-        └── 偵測到變化 → 立即擷取並回傳 ──►│  更新卡片顯示
-```
-
-1. 桌面程式在 `localhost:7890` 啟動一個輕量 HTTP 伺服器
-2. Tampermonkey 腳本偵測對應頁面，自動擷取額度資料，透過 `POST /update` 傳送
-3. 桌面程式每 1.5 秒輪詢 DATA_STORE，有新資料即更新對應卡片
-4. 桌面程式按「重新整理」時，透過 `/poll` 通知所有 JS 立即重新擷取
+<table>
+<tr>
+  <td align="center">
+    <img src="PICS/2026-05-09%2015%2026%2055.jpg" width="220" alt="小工具主畫面"><br>
+    <sub>小工具主畫面（部分展開）</sub>
+  </td>
+  <td align="center">
+    <img src="PICS/2026-05-09%2015%2039%2008.jpg" width="220" alt="等待資料狀態"><br>
+    <sub>等待瀏覽器資料中</sub>
+  </td>
+  <td align="center">
+    <img src="PICS/2026-05-09%2015%2039%2016.jpg" width="220" alt="右鍵選單"><br>
+    <sub>右鍵選單</sub>
+  </td>
+</tr>
+<tr>
+  <td align="center">
+    <img src="PICS/2026-05-09%2015%2039%2025.jpg" width="220" alt="瀏覽器快速開啟子選單"><br>
+    <sub>Chrome / Firefox 快速開啟子選單</sub>
+  </td>
+  <td align="center">
+    <img src="PICS/2026-05-09%2015%2040%2018.jpg" width="220" alt="全部服務展開"><br>
+    <sub>全部服務展開完整資訊</sub>
+  </td>
+  <td></td>
+</tr>
+</table>
 
 ---
 
-## 安裝步驟
+## 🚀 快速開始
 
-### 1. 安裝桌面應用程式
+### 步驟一：安裝桌面程式
 
-#### macOS
+**Windows**
+
+```bash
+git clone https://github.com/bjoe0201/ai-quota-monitor.git
+cd ai-quota-monitor
+pip install -r requirements.txt
+```
+
+雙擊 `start_widget.bat` 啟動小工具，或執行：
+
+```bash
+python widget_main.py
+```
+
+**macOS**
 
 > **需求**：Python 3.11+（含 Tcl/Tk 8.6）。系統內建 Python 3.9 不相容，請先安裝：
 > ```bash
@@ -53,90 +94,72 @@ cd ai-quota-monitor
 pip3.11 install -r requirements.txt
 ```
 
-雙擊 `start.command` 即可啟動（首次需在終端機執行 `chmod +x start.command`）。
-
-#### Windows
-
-```bash
-git clone https://github.com/bjoe0201/ai-quota-monitor.git
-cd ai-quota-monitor
-pip install -r requirements.txt
-python main.py
-```
-
-### 2. 安裝 Tampermonkey 瀏覽器腳本
-
-本專案提供以下版本的腳本，**建議使用 V4.1**：
-
-| 版本 | 檔案 | 方式 | 狀態 |
-|------|------|------|------|
-| **V4.1（推薦）** | `ai-monitor-client-v4.1.js` | API 攔截（URL 前置過濾 + 效能優化） | ✅ 目前維護 |
-| V4 | `ai-monitor-client-v4.js` | API 攔截（零 DOM 依賴） | ✅ 可用 |
-
-> ℹ️ V4.1 在 V4 基礎上新增 URL 前置過濾與精準解析，效能更佳，Chrome 上的卡頓問題已改善。
-
-> ⚠️ **已知問題（Chrome / Windows 11）**：在 Windows 11 上使用 Chrome 瀏覽器時，Tampermonkey 腳本可能造成頁面輕微卡頓。若遇到此問題，建議改用 **Firefox** 執行腳本。
-
-**安裝步驟：**
-1. 安裝瀏覽器擴充套件 [Tampermonkey](https://www.tampermonkey.net/)
-2. 開啟 Tampermonkey > 新增腳本
-3. 將 `ai-monitor-client-v4.1.js` 全部內容貼入並儲存
-4. 開啟以下任一支援頁面，腳本會自動開始擷取：
-
-| 頁面 | URL |
-|------|-----|
-| OpenAI 帳單 | `https://platform.openai.com/settings/organization/billing/overview` |
-| Claude.ai 用量 | `https://claude.ai/settings/usage` |
-| Claude API 帳單 | `https://platform.claude.com/settings/billing` |
-| GitHub Copilot | `https://github.com/settings/copilot/features` |
-
-### 3. 確認連線
-
-頁面右下角會出現 ⚡ 色點，綠色表示資料已成功傳送至桌面程式。
+雙擊 `start.command` 啟動（首次需在終端機執行 `chmod +x start.command`）。
 
 ---
 
-## 桌面小工具（Desktop Widget）
+### 步驟二：安裝 Tampermonkey 瀏覽器腳本
 
-輕量版常駐小工具，為預設啟動畫面，與主視窗共用同一資料來源（port 7890）。
+1. 安裝瀏覽器擴充套件 [Tampermonkey](https://www.tampermonkey.net/)
+2. 開啟 Tampermonkey > **新增腳本**
+3. 將 `ai-monitor-client-v4.3.js` 全部內容貼入並儲存
 
-### 啟動方式
+> ⚠️ **Chrome / Windows 11 輕微卡頓**：建議改用 **Firefox** 執行腳本。
 
-| 平台 | 方式 |
+#### 腳本版本
+
+| 版本 | 檔案 | 說明 | 狀態 |
+|------|------|------|------|
+| **V4.3（推薦）** | `ai-monitor-client-v4.3.js` | 新增 OpenRouter 支援 | ✅ 目前維護 |
+| V4.1 | `ai-monitor-client-v4.1.js` | URL 前置過濾 + 效能優化 | ✅ 可用 |
+| V4 | `ai-monitor-client-v4.js` | 基礎 API 攔截版 | ✅ 可用 |
+
+---
+
+### 步驟三：開啟監控頁面
+
+在瀏覽器開啟以下頁面，腳本會自動偵測並擷取資料推送至小工具。
+
+| 服務 | URL |
+|------|-----|
+| Claude.ai 用量 | `https://claude.ai/settings/usage` |
+| GitHub Copilot | `https://github.com/settings/billing/premium_requests_usage` |
+| OpenAI 帳單 | `https://platform.openai.com/settings/organization/billing/overview` |
+| Claude API 帳單 | `https://platform.claude.com/settings/billing` |
+| OpenRouter | `https://openrouter.ai/settings/credits` |
+
+> 💡 **小技巧**：在小工具上**右鍵 > Chrome（或 Firefox）> 一鍵開啟所有網頁**，可同時開啟全部頁面。
+
+### 步驟四：確認連線
+
+各頁面右下角會出現 ⚡ 色點：
+
+| 顏色 | 狀態 |
 |------|------|
-| **macOS** | 雙擊 `start.command` |
-| **Windows** | 雙擊 `start_widget.bat` |
+| 🔵 藍色 | 監聽中 |
+| 🟢 綠色 | 資料已成功推送至桌面程式 |
+| 🔴 紅色 | 發生錯誤 |
+| ⚪ 白色 | 無回應（桌面程式未執行） |
 
-```bash
-# 直接執行
-python widget_main.py
-```
+---
 
-### 功能特色
+## 🖥 小工具操作說明
 
-| 功能 | 說明 |
-|------|------|
-| **翻頁時鐘** | 動畫翻頁效果顯示 HH:MM + 秒數，底部顯示日期 |
-| **4 張額度卡片** | 顯示與主視窗完全相同的資料欄位 |
-| **無邊框浮動** | `wm_overrideredirect`，不出現於工作列 |
-| **常駐桌面層** | Win32 `SetWindowPos HWND_BOTTOM`，不遮擋其他視窗 |
-| **自動調整高度** | 資料載入後自動展開卡片高度 |
-| **位置記憶** | 記錄每次拖曳後的位置，重開後還原；超出螢幕自動歸位 |
-| **多螢幕支援** | 使用虛擬桌面座標驗證，第二顆螢幕（含負座標）位置正確還原 |
-| **透明度調整** | 右鍵選單 > 透明度設定（0.3 ~ 1.0） |
-
-### 操作方式
-
-| 操作 | 說明 |
+| 操作 | 功能 |
 |------|------|
 | **左鍵拖曳** | 移動視窗位置（自動儲存） |
-| **右鍵選單** | 重新整理 / 固定桌面層 / Chrome 子選單 / Firefox 子選單 / 透明度 / 離開 |
-| **⟳ 按鈕** | 狀態列右側，點擊立即重新整理所有卡片 |
-| **系統匣圖示** | 右鍵可顯示/隱藏視窗或離開 |
+| **右鍵選單** | 重新整理 / 固定桌面層 / 快速開啟瀏覽器頁面 / 透明度 / 離開 |
+| **▼ / ▶ 按鈕** | 展開或收合各服務卡片 |
+| **⟳ 按鈕** | 立即重新整理所有卡片 |
+| **系統匣圖示** | 右鍵可顯示 / 隱藏視窗或離開 |
 
-### 建置獨立執行檔
+---
 
-#### Windows
+## 🔧 進階：建置獨立執行檔
+
+不想每次都透過命令列啟動？可打包成獨立執行檔。
+
+### Windows（`.exe`）
 
 ```bash
 pip install pyinstaller
@@ -144,59 +167,70 @@ pyinstaller widget_build.spec --clean
 # 輸出：dist/AI額度監控-桌面小工具.exe
 ```
 
-#### macOS
+### macOS（`.app`）
 
-> **必須使用 Homebrew Python 3.11**（系統內建 Python 3.9 連結 Tcl/Tk 8.5，在 macOS 12+ 執行時會崩潰）：
-> ```bash
-> brew install python@3.11 python-tk@3.11
-> /opt/homebrew/bin/python3.11 -m pip install pyinstaller requests pystray pillow psutil
-> ```
+> 必須使用 Homebrew Python 3.11（系統內建 Python 3.9 的 Tcl/Tk 8.5 在 macOS 12+ 會崩潰）
 
 ```bash
+brew install python@3.11 python-tk@3.11
+/opt/homebrew/bin/python3.11 -m pip install pyinstaller requests pystray pillow psutil
 /opt/homebrew/bin/python3.11 -m PyInstaller widget_build.spec --clean
-# 移除 Gatekeeper 隔離屬性
+
+# 移除 Gatekeeper 隔離屬性（否則會被阻擋）
 xattr -dr com.apple.quarantine dist/AI額度監控.app
-# 輸出：dist/AI額度監控.app（可拖至 Dock 使用）
+# 輸出：dist/AI額度監控.app（可拖至 Applications 或 Dock 使用）
 ```
 
 ---
 
-## 瀏覽器腳本功能說明
+## 🛠 運作原理
 
-### `ai-monitor-client-v4.1.js`（推薦）
+```
+瀏覽器 (Tampermonkey)          桌面小工具 (Python)
+        │                               │
+        │  POST /update (資料)  ────►   │  local_server (port 7890)
+        │                               │
+        │  GET /poll?seq=N   ◄────      │  點擊「重新整理」
+        │                               │
+        └── 偵測到變化 → 立即擷取並回傳 ──►│  更新卡片顯示
+```
 
-V4.1 採用 **API 攔截**（Network Interception）架構，在頁面載入前安裝 `fetch` / `XHR` hook，並加入 URL 前置過濾與精準解析，自動擷取 API response 中的額度資料。
+1. 桌面程式在 `localhost:7890` 啟動輕量 HTTP 伺服器
+2. Tampermonkey 腳本在對應頁面攔截 API 回應，透過 `POST /update` 推送資料
+3. 桌面程式每 1.5 秒輪詢，有新資料即更新對應卡片
+4. 按「重新整理」時，透過 `/poll` 通知所有腳本立即重新擷取
 
-| 特性 | 說明 |
-|------|------|
-| **零 DOM 依賴** | 不讀取任何 DOM 元素，不受頁面改版影響 |
-| **即時擷取** | API 回應到達時立即提取，無需定時輪詢 |
-| **URL 前置過濾** | 僅攔截已知 API 路徑，減少不必要的處理開銷 |
-| **合併傳送** | 2 秒合併視窗（debounce），多個 API 回應合併為一次傳送 |
-| **變化偵測** | 僅在資料有變化時才傳送至伺服器 |
-| **自動重載** | 資料過期後自動重新載入頁面（OpenAI 5 分鐘、Claude 3-5 分鐘、Copilot 10 分鐘） |
-| **⚡ 狀態色點** | 右下角色點：🔵 監聽中 / 🟢 成功 / 🔴 錯誤 / ⚪ 無回應 |
+---
 
-#### Debug 模式
+## 🐛 Debug 模式
 
-預設開啟 debug 輸出。在瀏覽器 Console 輸入以下指令：
+安裝腳本後，在瀏覽器 Console（F12）輸入以下指令：
 
 ```javascript
-__aimon.debug()      // 切換 debug 開關
+__aimon.debug()      // 切換 debug 輸出開關
 __aimon.status()     // 查看攔截狀態
 __aimon.data()       // 查看最近擷取的資料
 __aimon.flush()      // 強制送出暫存資料
-__aimon.server(url)  // 設定伺服器位址
+__aimon.server(url)  // 設定伺服器位址（預設 http://localhost:7890）
 ```
 
-#### 各頁面攔截的 API
+---
+
+## 各頁面攔截的 API
 
 | 頁面 | 攔截的 API | 提取欄位 |
 |------|------------|----------|
 | **OpenAI** | `/billing/subscription`、`/billing/credit_grants` | 方案、餘額、硬上限、自動儲值 |
 | **Claude.ai** | `/usage`、`/prepaid/credits`、`/prepaid/bundles` | 工作階段%、每週%、額外用量、餘額、重置日期 |
 | **Claude API** | `/prepaid/credits`、`/current_spend`、`/rate_limits`、`/invoices` | 方案、餘額、本月用量、下次計費 |
-| **Copilot** | `/copilot_usage_card`、`/copilot_usage_table` | Premium Requests 已用/總量/百分比、計費金額 |
+| **Copilot** | `/copilot_usage_card`、`/copilot_usage_table` | Premium Requests 已用/總量/百分比 |
+| **OpenRouter** | `/api/v1/auth/key`、`/api/frontend/stats/user` | 餘額、本月花費、請求數、Tokens、常用模型 |
+
+---
+
+## 版本記錄
+
+詳見 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
