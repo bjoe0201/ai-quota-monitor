@@ -10,6 +10,7 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 DEFAULT_CONFIG = {
     "auto_refresh_minutes": 30,
     "server_port": 7890,
+    "density": "comfortable",
     "widget": {
         "x": -32768,
         "y": -32768,
@@ -104,6 +105,7 @@ class ConfigManager:
         config = DEFAULT_CONFIG.copy()
         config["auto_refresh_minutes"] = data.get("auto_refresh_minutes", 30)
         config["server_port"] = data.get("server_port", 7890)
+        config["density"] = data.get("density", "comfortable")
         if "widget" in data:
             config["widget"].update(data["widget"])
         for svc_key in DEFAULT_CONFIG["services"]:

@@ -1,41 +1,53 @@
 """
 桌面小工具樣式常數
-重用主程式的 COLORS 並加入時鐘專用樣式
+重用主程式的 COLORS 並加入小工具專用樣式
 """
-from gui.widgets import COLORS, SERVICE_ACCENTS, format_tokens, ProgressBar
+from gui.widgets import (
+    COLORS, SERVICE_ACCENTS, format_tokens, ProgressBar,
+    UI_FONT, MONO_FONT,
+    FONT_TITLE, FONT_HERO, FONT_HERO_UNIT, FONT_HERO_LABEL,
+    FONT_KV_LABEL, FONT_KV_VALUE, FONT_BAR_LABEL, FONT_BAR_PCT,
+    FONT_BAR_DETAIL, FONT_RESET_PILL, FONT_BADGE, FONT_TIMESTAMP,
+)
 
-# COLORS 在此模組中保持不變，但 cards.py / app.py
-# 應使用下方的 WIDGET_* 常數取代 COLORS["subtext"] 與 COLORS["text"]
-
-# ── 翻頁時鐘磁貼樣式 ──────────────────────────────────────────────────────
-TILE_W = 68           # 單個數字磁貼寬度
-TILE_H = 90           # 單個數字磁貼高度
-TILE_R = 10           # 圓角半徑
-TILE_BG = "#e8e8f0"   # 磁貼背景（淺色）
-TILE_TEXT = "#1e1e2e" # 數字顏色（深色）
-TILE_DIM = "#b0b0c4"  # 分隔線顏色
-TILE_SHADOW = "#a8a8bc"  # 翻頁陰影顏色
-
-DIGIT_FONT = ("Consolas", 50, "bold")
-LABEL_FONT = ("Segoe UI", 8)
+# ── 小工具專用文字色 ──────────────────────────────────────────────────────
+WIDGET_LABEL   = "#71717a"
+WIDGET_TEXT    = "#fafafa"
+WIDGET_SUBTEXT = "#52525b"
 
 # ── 小工具視窗設定 ────────────────────────────────────────────────────────
 WIDGET_WIDTH = 380
 WIDGET_MIN_HEIGHT = 400
 
-# ── 小工具專用較亮文字顏色（覆蓋主程式的暗色調）──────────────────────────
-WIDGET_LABEL   = "#a8b0d0"   # 標籤文字（比 subtext #6e738d 亮許多）
-WIDGET_TEXT    = "#e2e8ff"   # 一般數值文字（比 text #cad3f5 更亮）
-WIDGET_SUBTEXT = "#8890b8"   # 次要說明文字
+# ── 精簡版卡片設定 ────────────────────────────────────────────────────────
+COMPACT_CARD_PAD_X = 10
+COMPACT_CARD_PAD_Y = 4
 
-# ── 服務卡片精簡版設定 ─────────────────────────────────────────────────────
-COMPACT_CARD_PAD_X = 12
-COMPACT_CARD_PAD_Y = 6
+# ── 精簡版字型（比主視窗小 2pt）─────────────────────────────────────────
+COMPACT_FONT_TITLE      = (UI_FONT, 9, "bold")
+COMPACT_FONT_HERO       = (MONO_FONT, 22, "bold")
+COMPACT_FONT_HERO_UNIT  = (MONO_FONT, 12)
+COMPACT_FONT_HERO_LABEL = (UI_FONT, 7, "bold")
+COMPACT_FONT_KV_LABEL   = (UI_FONT, 8)
+COMPACT_FONT_KV_VALUE   = (MONO_FONT, 9, "bold")
+COMPACT_FONT_BAR_LABEL  = (UI_FONT, 8)
+COMPACT_FONT_BAR_PCT    = (MONO_FONT, 8, "bold")
+COMPACT_FONT_BAR_DETAIL = (MONO_FONT, 7)
+COMPACT_FONT_RESET_PILL = (MONO_FONT, 7, "bold")
+COMPACT_FONT_BADGE      = (UI_FONT, 7)
+COMPACT_FONT_TIMESTAMP  = (MONO_FONT, 7)
 
 __all__ = [
     "COLORS", "SERVICE_ACCENTS", "format_tokens", "ProgressBar",
-    "TILE_W", "TILE_H", "TILE_R", "TILE_BG", "TILE_TEXT",
-    "TILE_DIM", "TILE_SHADOW", "DIGIT_FONT", "LABEL_FONT",
+    "UI_FONT", "MONO_FONT",
+    "FONT_TITLE", "FONT_HERO", "FONT_HERO_UNIT", "FONT_HERO_LABEL",
+    "FONT_KV_LABEL", "FONT_KV_VALUE", "FONT_BAR_LABEL", "FONT_BAR_PCT",
+    "FONT_BAR_DETAIL", "FONT_RESET_PILL", "FONT_BADGE", "FONT_TIMESTAMP",
     "WIDGET_WIDTH", "WIDGET_MIN_HEIGHT",
+    "WIDGET_LABEL", "WIDGET_TEXT", "WIDGET_SUBTEXT",
     "COMPACT_CARD_PAD_X", "COMPACT_CARD_PAD_Y",
+    "COMPACT_FONT_TITLE", "COMPACT_FONT_HERO", "COMPACT_FONT_HERO_UNIT",
+    "COMPACT_FONT_HERO_LABEL", "COMPACT_FONT_KV_LABEL", "COMPACT_FONT_KV_VALUE",
+    "COMPACT_FONT_BAR_LABEL", "COMPACT_FONT_BAR_PCT", "COMPACT_FONT_BAR_DETAIL",
+    "COMPACT_FONT_RESET_PILL", "COMPACT_FONT_BADGE", "COMPACT_FONT_TIMESTAMP",
 ]

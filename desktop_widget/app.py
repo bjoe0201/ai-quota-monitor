@@ -32,7 +32,7 @@ from services.browser_data import (
 from services import local_server
 from services.base import ServiceResult
 
-from desktop_widget.clock import FlipClock
+from desktop_widget.clock import DigitalClock
 from desktop_widget.cards import CompactServiceCard
 from desktop_widget.styles import COLORS, WIDGET_WIDTH, WIDGET_LABEL, WIDGET_TEXT
 
@@ -378,7 +378,7 @@ class DesktopWidget(tk.Tk):
 
     def _build_ui(self):
         # ── 翻頁時鐘（可拖拉）─────────────────────────────────────────────
-        self.clock = FlipClock(self)
+        self.clock = DigitalClock(self)
         self.clock.pack(fill="x")
         self._setup_drag(self.clock)
         self._setup_drag(self)

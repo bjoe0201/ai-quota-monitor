@@ -16,7 +16,7 @@ from services.browser_data import (
     BrowserOpenRouterService,
 )
 from services import local_server
-from gui.widgets import ServiceCard, COLORS
+from gui.widgets import ServiceCard, COLORS, UI_FONT, MONO_FONT
 
 
 SERVICES = [
@@ -45,6 +45,7 @@ class MainApp(tk.Tk):
         self._result_queue = queue.Queue()
         self._refresh_job = None
         self._last_browser_ts: dict[str, str] = {}  # source_key → received_at
+        self._latest_results: dict[str, object] = {}  # service_key → ServiceResult
 
         # Start local HTTP server for Tampermonkey browser data
         port = self.config_data.get("server_port", 7890)
@@ -143,6 +144,9 @@ class MainApp(tk.Tk):
         # Thin separator
         tk.Frame(self, bg=COLORS["card_border"], height=1).pack(fill="x")
 
+        # ── KPI summary strip ──────────────────────────────────────────────
+        self._build_kpi_strip(self)
+
         # ── Status bar (must be packed before scroll area to reserve space) ──
         tk.Frame(self, bg=COLORS["card_border"], height=1).pack(fill="x", side="bottom")
         status_bar = tk.Frame(self, bg=COLORS["title_bg"], pady=5)
@@ -199,6 +203,7 @@ class MainApp(tk.Tk):
             "browser_claude_usage":   "Claude.ai 用量 (瀏覽器)",
             "browser_claude_billing": "Claude API 帳單 (瀏覽器)",
             "browser_github_copilot": "GitHub Copilot (瀏覽器)",
+            "browser_openrouter":     "OpenRouter (瀏覽器)",
         }
 
         row_frame = None
@@ -305,11 +310,13 @@ class MainApp(tk.Tk):
             try:
                 key, result = self._result_queue.get_nowait()
                 self.cards[key].update_result(result)
+                self._latest_results[key] = result
                 completed.append(key)
             except queue.Empty:
                 break
 
         if completed:
+            self._refresh_kpis()
             browser_keys = set(BROWSER_SERVICE_SOURCES.keys())
             non_browser_cards = [k for k in self.cards if k not in browser_keys]
             all_done = all(
@@ -329,6 +336,75 @@ class MainApp(tk.Tk):
         self.status_label.config(text=f"最後更新: {now}", fg=COLORS["subtext"])
         self.status_dot_lbl.config(fg=COLORS["success"])
         self.refresh_btn.config(state="normal", text="⟳  重新整理")
+
+    # ── KPI strip ──────────────────────────────────────────────────────────
+
+    def _build_kpi_strip(self, parent):
+        strip = tk.Frame(parent, bg=COLORS["bg"])
+        strip.pack(fill="x", padx=18, pady=(14, 0))
+        grid = tk.Frame(strip, bg=COLORS["bg"])
+        grid.pack(fill="x")
+        self._kpis = []
+        for i, (label, default_value, color_key) in enumerate([
+            ("總餘額", "—", "success"),
+            ("本月花費", "—", "text"),
+            ("活躍服務", "—", "info"),
+            ("下個重置", "—", "violet"),
+        ]):
+            cell = tk.Frame(grid, bg=COLORS["bg"])
+            cell.grid(row=0, column=i, sticky="nsew",
+                      padx=(0 if i == 0 else 1, 0))
+            grid.grid_columnconfigure(i, weight=1, uniform="kpi")
+            if i > 0:
+                tk.Frame(cell, bg=COLORS["card_border"], width=1).pack(
+                    side="left", fill="y")
+            inner = tk.Frame(cell, bg=COLORS["bg"], padx=14, pady=12)
+            inner.pack(fill="both", expand=True)
+            tk.Label(inner, text=label.upper(),
+                     fg=COLORS["text_dim"], bg=COLORS["bg"],
+                     font=(UI_FONT, 8, "bold")).pack(anchor="w")
+            val = tk.Label(inner, text=default_value,
+                           fg=COLORS[color_key], bg=COLORS["bg"],
+                           font=(MONO_FONT, 18, "bold"))
+            val.pack(anchor="w", pady=(2, 0))
+            self._kpis.append(val)
+
+    def _refresh_kpis(self):
+        results = list(self._latest_results.values())
+        if not results:
+            return
+        total_balance = 0
+        month_spend = 0
+        active = 0
+        for r in results:
+            if not r.success:
+                continue
+            active += 1
+            d = r.data
+            total_balance += d.get("balance_usd", 0)
+            month_spend += (
+                d.get("month_usage_usd", 0) or
+                d.get("month_spend_usd", 0) or
+                d.get("this_month_usd", 0)
+            )
+        total = len(results)
+        self._kpis[0].config(text=f"${total_balance:.2f}")
+        self._kpis[1].config(text=f"${month_spend:.2f}")
+        self._kpis[2].config(text=f"{active} / {total}")
+        self._kpis[3].config(text=self._next_reset_summary(results))
+
+    def _next_reset_summary(self, results):
+        min_days = None
+        for r in results:
+            if not r.success:
+                continue
+            days = r.data.get("resets_in_days")
+            if days is not None:
+                if min_days is None or days < min_days:
+                    min_days = days
+        if min_days is not None:
+            return f"{min_days} 天"
+        return "—"
 
     _PAGE_URLS = [
         ("OpenAI 帳單",     "https://platform.openai.com/settings/organization/billing/overview?oclaw=1"),
