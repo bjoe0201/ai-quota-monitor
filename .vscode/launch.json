@@ -1,0 +1,111 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        // ── 主視窗 ────────────────────────────────────────────────────────
+        {
+            "name": "▶ 主視窗 (main.py)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "🔍 主視窗 偵錯 (顯示所有例外)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        // ── 桌面小工具 ────────────────────────────────────────────────────
+        {
+            "name": "▶ 桌面小工具 (widget_main.py)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/widget_main.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "🔍 桌面小工具 偵錯 (顯示所有例外)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/widget_main.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "🕐 偵錯 翻頁時鐘 (clock.py)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/desktop_widget/clock.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        // ── macOS (Homebrew Python 3.11) ──────────────────────────────────
+        {
+            "name": "▶ [macOS] 主視窗 (main.py)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "python": "/opt/homebrew/bin/python3.11",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "▶ [macOS] 桌面小工具 (widget_main.py)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/widget_main.py",
+            "python": "/opt/homebrew/bin/python3.11",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "🔍 [macOS] 桌面小工具 偵錯 (顯示所有例外)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/widget_main.py",
+            "python": "/opt/homebrew/bin/python3.11",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        // ── 通用 ──────────────────────────────────────────────────────────
+        {
+            "name": "偵錯目前檔案",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        }
+    ]
+}

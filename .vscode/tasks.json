@@ -1,0 +1,145 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "安裝依賴套件",
+            "type": "shell",
+            "command": "py -m pip install -r requirements.txt",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "安裝 PyInstaller",
+            "type": "shell",
+            "command": "py -m pip install pyinstaller",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "建置執行檔",
+            "type": "shell",
+            "command": "pyinstaller build.spec --clean",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "dependsOn": ["安裝依賴套件", "安裝 PyInstaller"],
+            "problemMatcher": []
+        },
+        {
+            "label": "執行應用程式",
+            "type": "shell",
+            "command": "py main.py",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "清除建置產物",
+            "type": "shell",
+            "command": "rm -rf build dist __pycache__ **/__pycache__",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        // ── 一鍵全開網頁 ──────────────────────────────────────────────────
+        {
+            "label": "🌐 一鍵開啟全部監控頁面",
+            "type": "shell",
+            "command": "Start-Process 'https://platform.openai.com/settings/organization/billing/overview'; Start-Process 'https://claude.ai/settings/usage'; Start-Process 'https://platform.claude.com/settings/billing'; Start-Process 'https://github.com/settings/billing/premium_requests_usage'",
+            "options": {
+                "shell": {
+                    "executable": "powershell.exe",
+                    "args": ["-NoProfile", "-Command"]
+                }
+            },
+            "group": "none",
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true
+            },
+            "problemMatcher": []
+        },
+        // ── 桌面小工具 ────────────────────────────────────────────────────
+        {
+            "label": "執行桌面小工具",
+            "type": "shell",
+            "command": "py widget_main.py",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": false
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "安裝小工具依賴 (pystray + Pillow)",
+            "type": "shell",
+            "command": "py -m pip install \"pystray>=0.19.4\" \"Pillow>=9.0.0\"",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "建置小工具執行檔",
+            "type": "shell",
+            "command": "pyinstaller widget_build.spec --clean",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "dependsOn": ["安裝依賴套件", "安裝 PyInstaller"],
+            "problemMatcher": []
+        }
+    ]
+}
