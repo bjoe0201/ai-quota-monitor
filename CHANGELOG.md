@@ -11,6 +11,13 @@
 
 ---
 
+## [4.4.1] - 2026-05-15
+
+### Fixed
+- `ai-monitor-client-v4.4.js`：OpenRouter `/settings/credits` 頁面改版後，原本依賴翻頁動畫 `translateY` 偏移量推算數字的邏輯會抓不到完整餘額（DOM 翻頁格數可能少於實際位數），改為**優先讀取容器 `aria-label="Remaining credits: X.XXX"`**，最精準且不受動畫狀態影響；翻頁動畫解析保留為 fallback
+
+---
+
 ## [4.4.0] - 2026-05-09
 
 ### Added
@@ -134,7 +141,8 @@
 
 ---
 
-[Unreleased]: https://github.com/bjoe0201/ai-quota-monitor/compare/v4.4.0...HEAD
+[Unreleased]: https://github.com/bjoe0201/ai-quota-monitor/compare/v4.4.1...HEAD
+[4.4.1]: https://github.com/bjoe0201/ai-quota-monitor/compare/v4.4.0...v4.4.1
 [4.4.0]: https://github.com/bjoe0201/ai-quota-monitor/compare/v4.3.0...v4.4.0
 [4.3.0]: https://github.com/bjoe0201/ai-quota-monitor/compare/v4.2.0...v4.3.0
 [4.2.0]: https://github.com/bjoe0201/ai-quota-monitor/compare/v4.1.0...v4.2.0

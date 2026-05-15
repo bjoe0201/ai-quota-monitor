@@ -56,7 +56,7 @@ xattr -dr com.apple.quarantine dist/AI額度監控.app
 | `services/local_server.py` | 監聽 `127.0.0.1:7890` 的 `ThreadingHTTPServer`。模組層級的 `DATA_STORE: dict[str, dict]` 為共享資料庫；公開 API：`start(port)` / `stop()` / `is_running()` / `get_data(key)` / `request_refresh()` |
 | `services/browser_data.py` | 五個 `BaseService` 子類別（每個監控頁面一個），從 `local_server.DATA_STORE` 讀取資料，並標記 `updated_at`；若資料超過 10 分鐘未更新則顯示過期警告 |
 | `config/manager.py` | `ConfigManager` 讀寫 `~/.config/ai-quota-monitor/config.json`。敏感欄位（token、API 金鑰）在磁碟上以 Base64 編碼儲存（非加密）。`load()` 會將已儲存設定與 `DEFAULT_CONFIG` 合併，確保新增的鍵永遠有預設值 |
-| `ai-monitor-client-v4.4.js` | Tampermonkey 使用者腳本（v4.4 = v4.1 + OpenRouter）。透過 fetch / XHR hook 攔截 API 回應，由 `transformOpenAI` / `transformClaudeUsage` / `transformClaudeBilling` / `transformGitHubCopilot` / `transformOpenRouter` 轉成標準欄位，POST 至本地伺服器。頁面右下角有浮動 ⚡ 圓點顯示連線狀態 |
+| `ai-monitor-client-v4.4.js` | Tampermonkey 使用者腳本（v4.4.1 = v4.1 + OpenRouter）。OpenAI / Claude.ai / Claude API / GitHub Copilot 透過 fetch / XHR hook 攔截 JSON API；**OpenRouter 因採 Next.js SSR + RSC 字串流（無 JSON API）改用 DOM 解析**：`/settings/credits` 優先讀容器 `aria-label="Remaining credits: X.XXX"`（v4.4.1 新增，最可靠），fallback 至翻頁動畫（`flex-row-reverse` + `translateY` / 40px = 數字）；`/activity` 直接讀 textContent。頁面右下角有浮動 ⚡ 圓點顯示連線狀態 |
 | `desktop_widget/tray.py` | `SystemTray` 使用 `pystray`。在 macOS 上必須呼叫 `icon.run_detached()`（不能在執行緒中呼叫 `icon.run()`），因為 AppKit 需要主執行緒，而主執行緒已被 tkinter 佔用 |
 
 ### 設定檔位置

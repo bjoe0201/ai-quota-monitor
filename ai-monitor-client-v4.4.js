@@ -1,9 +1,10 @@
 // ==UserScript==
 // @name         AI Quota Monitor Client v4.4
 // @namespace    https://github.com/ai-quota-monitor
-// @version      4.4.0
+// @version      4.4.1
 // @description  v4.1 + OpenRouter 支援（API 攔截版，零 DOM 依賴）
 // @author       AI Quota Monitor
+// @updated      2026-05-15 — OpenRouter /settings/credits 改用 aria-label 解析餘額（v4.4.1）
 // @match        https://platform.openai.com/settings/organization/billing/overview*
 // @match        https://claude.ai/settings/usage*
 // @match        https://platform.claude.com/settings/billing*
@@ -95,7 +96,7 @@
     let domParseSuccess = false;
     const MERGE_WINDOW = 2000; // 2 秒合併視窗
 
-    const LOG_PREFIX = '[AI Monitor v4.4]';
+    const LOG_PREFIX = '[AI Monitor v4.4.1]';
 
     // ─────────────────────────────────────────────
     //  DEBUG LOGGER
@@ -470,10 +471,11 @@
     //  OpenRouter 是 Next.js SSR + RSC，數字直接渲染進 HTML，不發 JSON API。
     //  因此改用 DOM 解析。
     //
-    //  - /settings/credits：餘額用「翻頁動畫」結構，每位數字靠
-    //    transform: translateY(Npx) 偏移露出 0–9 中的某格。
-    //    每格高 40px，digit = translateY / 40。
-    //    flex-row-reverse 讓 HTML 順序與視覺相反，需反讀。
+    //  - /settings/credits：
+    //      ⭐ 新版頁面：容器上有 aria-label="Remaining credits: 39.486"，最可靠。
+    //      舊版頁面：餘額用「翻頁動畫」結構，每位數字靠 transform: translateY(Npx) 偏移
+    //               露出 0–9 中的某格。每格高 40px，digit = translateY / 40。
+    //               flex-row-reverse 讓 HTML 順序與視覺相反，需反讀。
     //  - /activity：Spend / Requests / Tokens 直接是 textContent。
     // ─────────────────────────────────────────────
 
@@ -530,17 +532,33 @@
         if (path.startsWith('/settings/credits')) {
             let balance = null;
 
-            // 方法 A：翻頁動畫格式（flex-row-reverse + translateY）
-            const candidates = document.querySelectorAll('span.text-4xl');
-            for (const span of candidates) {
-                const flipped = _parseFlipDigits(span);
-                if (flipped !== null && /^\d+\.\d+$/.test(flipped)) {
-                    balance = parseFloat(flipped);
-                    break;
+            // 方法 A（最可靠）：直接讀 aria-label="Remaining credits: 39.486"
+            // 新版頁面把實際數值放在容器的 aria-label 上，不受翻頁動畫影響
+            const ariaEls = document.querySelectorAll('[aria-label^="Remaining credits"]');
+            for (const el of ariaEls) {
+                const m = (el.getAttribute('aria-label') || '').match(/Remaining credits:\s*([\d,]+\.?\d*)/i);
+                if (m) {
+                    const val = parseFloat(m[1].replace(/,/g, ''));
+                    if (isFinite(val) && val >= 0 && val < 100000) {
+                        balance = val;
+                        break;
+                    }
                 }
             }
 
-            // 方法 B：靜態大字體文字 fallback（頁面改版後常見格式）
+            // 方法 B：翻頁動畫格式（flex-row-reverse + translateY）
+            if (balance === null) {
+                const candidates = document.querySelectorAll('span.text-4xl');
+                for (const span of candidates) {
+                    const flipped = _parseFlipDigits(span);
+                    if (flipped !== null && /^\d+\.\d+$/.test(flipped)) {
+                        balance = parseFloat(flipped);
+                        break;
+                    }
+                }
+            }
+
+            // 方法 C：靜態大字體文字 fallback
             if (balance === null) {
                 const bigEls = document.querySelectorAll(
                     'p.text-4xl, span.text-4xl, p.text-3xl, span.text-3xl, p.text-5xl, span.text-5xl'
@@ -555,7 +573,7 @@
                 }
             }
 
-            // 方法 C：全頁搜尋 "$ XX.XX" 文字節點（最後手段）
+            // 方法 D：全頁搜尋 "$ XX.XX" 文字節點（最後手段）
             if (balance === null && document.body) {
                 const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
                 let node;
@@ -1019,7 +1037,7 @@
             'user-select:none',
         ].join(';');
         _dot.textContent = '⚡';
-        _dot.title = PAGE.label + ' v4.4 — 攔截模式\n點擊重新載入頁面';
+        _dot.title = PAGE.label + ' v4.4.1 — 攔截模式\n點擊重新載入頁面';
         _dot.addEventListener('click', () => {
             location.reload();
         });
@@ -1146,7 +1164,7 @@
     // ─────────────────────────────────────────────
 
     // Phase 1: 在 document-start 立刻安裝 hook（此時 DOM 未就緒）
-    dbg('=== AI Quota Monitor v4.4 啟動 ===');
+    dbg('=== AI Quota Monitor v4.4.1 啟動 ===');
     dbg('頁面:', PAGE.label, '(' + PAGE.key + ')');
     dbg('規則數:', activeRules.length);
 

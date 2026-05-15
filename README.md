@@ -102,7 +102,7 @@ pip3.11 install -r requirements.txt
 
 1. 安裝瀏覽器擴充套件 [Tampermonkey](https://www.tampermonkey.net/)
 2. 開啟 Tampermonkey > **新增腳本**
-3. 將 `ai-monitor-client-v4.3.js` 全部內容貼入並儲存
+3. 將 `ai-monitor-client-v4.4.js` 全部內容貼入並儲存
 
 > ⚠️ **Chrome / Windows 11 輕微卡頓**：建議改用 **Firefox** 執行腳本。
 
@@ -110,9 +110,7 @@ pip3.11 install -r requirements.txt
 
 | 版本 | 檔案 | 說明 | 狀態 |
 |------|------|------|------|
-| **V4.3（推薦）** | `ai-monitor-client-v4.3.js` | 新增 OpenRouter 支援 | ✅ 目前維護 |
-| V4.1 | `ai-monitor-client-v4.1.js` | URL 前置過濾 + 效能優化 | ✅ 可用 |
-| V4 | `ai-monitor-client-v4.js` | 基礎 API 攔截版 | ✅ 可用 |
+| **v4.4.1（推薦）** | `ai-monitor-client-v4.4.js` | v4.4 + OpenRouter `/settings/credits` 改用 `aria-label` 解析餘額 | ✅ 目前維護 |
 
 ---
 
@@ -253,7 +251,7 @@ __aimon.server(url)  // 設定伺服器位址（預設 http://localhost:7890）
 - **自動更新間隔**：桌面程式定期通知 JS 重新擷取（預設 30 分鐘）
 - **本地伺服器 Port**：預設 `7890`，需與 JS 腳本設定一致
 
-V4.1 腳本的自動重載間隔為內建設定，各頁面獨立：
+v4.4 腳本的自動重載間隔為內建設定，各頁面獨立：
 
 | 服務 | 自動重載間隔 |
 |------|-------------|
@@ -261,8 +259,9 @@ V4.1 腳本的自動重載間隔為內建設定，各頁面獨立：
 | Claude.ai 用量 | 3 分鐘 |
 | Claude API 帳單 | 5 分鐘 |
 | GitHub Copilot | 10 分鐘 |
+| OpenRouter | 5 分鐘 |
 
-> V4.1 在資料過期（超過上述間隔未收到新 API 回應）時自動重新載入頁面，無需手動設定。
+> v4.4 在資料過期（超過上述間隔未收到新 API 回應）時自動重新載入頁面，無需手動設定。
 
 ### 設定檔位置
 
@@ -282,7 +281,7 @@ V4.1 腳本的自動重載間隔為內建設定，各頁面獨立：
 > 確認桌面程式已執行，且伺服器位址與程式 Port 設定一致（預設 `http://localhost:7890`）。可在 Console 輸入 `__aimon.server()` 查看目前設定。
 
 **Q: 按「重新整理」後卡片沒有更新？**
-> 瀏覽器需要開啟對應頁面且腳本在執行中。V4.1 會在頁面載入時自動擷取 API 回應，無需手動觸發。
+> 瀏覽器需要開啟對應頁面且腳本在執行中。v4.4 會在頁面載入時自動擷取 API 回應，無需手動觸發。
 
 **Q: 顯示「未偵測到 API 回應」？**
 > 在 Console 執行 `__aimon.debug(true)`，若無任何 `✅ 匹配 API` 輸出，請重新載入頁面。若仍無效，可能是網站 API 路徑已變更，請通報 issue。
@@ -303,7 +302,7 @@ V4.1 腳本的自動重載間隔為內建設定，各頁面獨立：
 - **語言**：Python 3.11+
 - **GUI 框架**：tkinter（自繪 Canvas 進度條、翻頁動畫，Catppuccin Macchiato 深色主題）
 - **本地伺服器**：Python `http.server.ThreadingHTTPServer`（port 7890）
-- **瀏覽器腳本**：Tampermonkey userscript（V4.1: `fetch`/`XHR` hook + URL 前置過濾 + `GM_xmlhttpRequest`）
+- **瀏覽器腳本**：Tampermonkey userscript（v4.4: `fetch`/`XHR` hook + URL 前置過濾 + OpenRouter DOM 解析 + `GM_xmlhttpRequest`）
 - **系統匣**：pystray + Pillow
 - **打包工具**：PyInstaller
 - **設定儲存**：JSON
@@ -315,8 +314,7 @@ V4.1 腳本的自動重載間隔為內建設定，各頁面獨立：
 ai-quota-monitor/
 ├── main.py                      # 主程式進入點（啟動桌面小工具）
 ├── widget_main.py               # 桌面小工具入口（含系統匣）
-├── ai-monitor-client-v4.1.js   # Tampermonkey 瀏覽器腳本（V4.1 推薦）
-├── ai-monitor-client-v4.js     # Tampermonkey 瀏覽器腳本（V4 可用）
+├── ai-monitor-client-v4.4.js   # Tampermonkey 瀏覽器腳本（v4.4.1 推薦）
 ├── start.command                # macOS 雙擊啟動腳本
 ├── start.bat / start.ps1        # Windows 啟動腳本
 ├── start_widget.bat             # Windows 小工具啟動腳本（無 CMD 視窗）
