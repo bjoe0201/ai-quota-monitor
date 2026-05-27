@@ -1,14 +1,15 @@
 // ==UserScript==
 // @name         AI Quota Monitor Client v4.4
 // @namespace    https://github.com/ai-quota-monitor
-// @version      4.4.1
+// @version      4.4.2
 // @description  v4.1 + OpenRouter 支援（API 攔截版，零 DOM 依賴）
 // @author       AI Quota Monitor
-// @updated      2026-05-15 — OpenRouter /settings/credits 改用 aria-label 解析餘額（v4.4.1）
+// @updated      2026-05-27 — 新增 GitHub Billing Budgets 頁面支援（v4.4.2）
 // @match        https://platform.openai.com/settings/organization/billing/overview*
 // @match        https://claude.ai/settings/usage*
 // @match        https://platform.claude.com/settings/billing*
 // @match        https://github.com/settings/copilot/features*
+// @match        https://github.com/settings/billing/budgets*
 // @match        https://openrouter.ai/activity*
 // @match        https://openrouter.ai/settings/credits*
 // @run-at       document-start
@@ -49,8 +50,8 @@
         'github.com': {
             key: 'github_copilot',
             label: 'Copilot',
-            expectedPath: '/settings/copilot/features',
-            refreshInterval: 2 * 60 * 1000,  // 10 分鐘
+            expectedPath: ['/settings/copilot/features', '/settings/billing/budgets'],
+            refreshInterval: 2 * 60 * 1000,  // 2 分鐘
         },
         'openrouter.ai': {
             key: 'openrouter',
@@ -96,7 +97,7 @@
     let domParseSuccess = false;
     const MERGE_WINDOW = 2000; // 2 秒合併視窗
 
-    const LOG_PREFIX = '[AI Monitor v4.4.1]';
+    const LOG_PREFIX = '[AI Monitor v4.4.2]';
 
     // ─────────────────────────────────────────────
     //  DEBUG LOGGER
@@ -681,6 +682,14 @@
         if (PAGE.key !== 'github_copilot') return false;
         if (!isOnExpectedPage()) return false;
 
+        const path = location.pathname;
+
+        // ── /settings/billing/budgets 頁面 ─────────────
+        if (path.startsWith('/settings/billing/budgets')) {
+            return parseDOMGitHubBudgets();
+        }
+
+        // ── /settings/copilot/features 頁面 ─────────────
         const container = document.getElementById('copilot-overages-usage');
         if (!container) {
             dbg('parseDOMGitHubCopilot: #copilot-overages-usage 不存在');
@@ -723,23 +732,94 @@
         return true;
     }
 
+    // ── GitHub Billing Budgets DOM Parsing ─────────
+    // 頁面：https://github.com/settings/billing/budgets
+    // 真實 DOM 結構（確認版）：
+    //   <tr> 含 "All Premium Request SKUs" 文字
+    //   同 <tr> 內有 <td class="BudgetData-module__ProgressCell__*">
+    //     progressbar[aria-valuenow] → 百分比（但用 --progress-width CSS var 較精確）
+    //     <span class="BudgetData-module__LinkText__*">$0.21</span> spent
+    //     <span class="BudgetData-module__LinkText__*">$50.00</span> budget
+    function parseDOMGitHubBudgets() {
+        const fields = {};
+
+        // 找所有 tr，取含 "All Premium Request SKUs" 的那一列
+        let targetRow = null;
+        for (const tr of document.querySelectorAll('tr')) {
+            if ((tr.textContent || '').includes('All Premium Request SKUs')) {
+                targetRow = tr;
+                break;
+            }
+        }
+
+        if (!targetRow) {
+            dbg('parseDOMGitHubBudgets: 找不到 All Premium Request SKUs 列');
+            return false;
+        }
+
+        // 從 progressbar 取 aria-valuenow（0–100）
+        const progressBar = targetRow.querySelector('[role="progressbar"]');
+        if (progressBar) {
+            const now = parseFloat(progressBar.getAttribute('aria-valuenow'));
+            if (isFinite(now)) fields.budget_percent = now;
+        }
+
+        // 找所有 LinkText span，按出現順序：第一個是 spent，第二個是 budget
+        const linkTexts = targetRow.querySelectorAll('[class*="LinkText"]');
+        const amounts = [];
+        for (const el of linkTexts) {
+            const val = parseFloat((el.textContent || '').replace(/[$,]/g, ''));
+            if (isFinite(val)) amounts.push(val);
+        }
+        if (amounts.length >= 2) {
+            fields.budget_spent_usd = amounts[0];
+            fields.budget_limit_usd = amounts[1];
+            // 用實際金額重算百分比（比 aria-valuenow 更精確）
+            if (fields.budget_limit_usd > 0) {
+                fields.budget_percent = Math.round(fields.budget_spent_usd / fields.budget_limit_usd * 1000) / 10;
+            }
+        } else if (amounts.length === 0) {
+            dbg('parseDOMGitHubBudgets: 找不到金額');
+            return false;
+        }
+
+        dbg('parseDOMGitHubBudgets: 解析成功', fields);
+        merge('github_copilot', fields);
+        domParseSuccess = true;
+        return true;
+    }
+
     function installDOMObserver() {
         if (PAGE.key !== 'github_copilot') return;
         if (_domObserver) return;
         if (parseDOMGitHubCopilot()) return;  // SSR 已有資料直接解析
 
-        dbg('installDOMObserver: 啟動 MutationObserver 等待 #copilot-overages-usage');
+        const isBudgetsPage = location.pathname.startsWith('/settings/billing/budgets');
+        dbg('installDOMObserver: 啟動 MutationObserver，頁面:', isBudgetsPage ? 'budgets' : 'copilot/features');
+
         _domObserver = new MutationObserver((mutations, obs) => {
             for (const mutation of mutations) {
                 if (mutation.type !== 'childList') continue;
                 for (const node of mutation.addedNodes) {
                     if (node.nodeType !== Node.ELEMENT_NODE) continue;
-                    if (node.id === 'copilot-overages-usage' ||
-                        (node.querySelector && node.querySelector('#copilot-overages-usage'))) {
-                        obs.disconnect();
-                        _domObserver = null;
-                        parseDOMGitHubCopilot();
-                        return;
+                    // copilot/features 頁面：等 #copilot-overages-usage
+                    if (!isBudgetsPage) {
+                        if (node.id === 'copilot-overages-usage' ||
+                            (node.querySelector && node.querySelector('#copilot-overages-usage'))) {
+                            obs.disconnect();
+                            _domObserver = null;
+                            parseDOMGitHubCopilot();
+                            return;
+                        }
+                    } else {
+                        // budgets 頁面：等含 "All Premium Request SKUs" 的 tr 出現
+                        if ((node.textContent || '').includes('All Premium Request SKUs') ||
+                            (node.querySelector && node.querySelector('tr'))) {
+                            obs.disconnect();
+                            _domObserver = null;
+                            parseDOMGitHubCopilot();
+                            return;
+                        }
                     }
                 }
             }
@@ -1037,7 +1117,7 @@
             'user-select:none',
         ].join(';');
         _dot.textContent = '⚡';
-        _dot.title = PAGE.label + ' v4.4.1 — 攔截模式\n點擊重新載入頁面';
+        _dot.title = PAGE.label + ' v4.4.2 — 攔截模式\n點擊重新載入頁面';
         _dot.addEventListener('click', () => {
             location.reload();
         });
@@ -1077,6 +1157,10 @@
                 if (_domObserver) { _domObserver.disconnect(); _domObserver = null; }
                 domParseSuccess = false;
                 installDOMObserver();
+                // budgets 頁面額外再解析一次（等 React 渲染）
+                if (location.pathname.startsWith('/settings/billing/budgets')) {
+                    setTimeout(parseDOMGitHubCopilot, 2000);
+                }
             }
             if (isOnExpectedPage() && PAGE.key === 'openrouter') {
                 domParseSuccess = false;
@@ -1164,7 +1248,7 @@
     // ─────────────────────────────────────────────
 
     // Phase 1: 在 document-start 立刻安裝 hook（此時 DOM 未就緒）
-    dbg('=== AI Quota Monitor v4.4.1 啟動 ===');
+    dbg('=== AI Quota Monitor v4.4.2 啟動 ===');
     dbg('頁面:', PAGE.label, '(' + PAGE.key + ')');
     dbg('規則數:', activeRules.length);
 
@@ -1189,6 +1273,9 @@
             if (_domObserver) { _domObserver.disconnect(); _domObserver = null; }
             domParseSuccess = false;
             installDOMObserver();
+            if (location.pathname.startsWith('/settings/billing/budgets')) {
+                setTimeout(parseDOMGitHubCopilot, 2000);
+            }
         }, { passive: true });
         dbg('✓ 所有模組已初始化');
     }

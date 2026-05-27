@@ -456,6 +456,16 @@ class CompactServiceCard(tk.Frame):
                     "reset_text": f"{reset_days} 天後" if reset_days is not None else None,
                     "reset_urgent": (reset_days or 99) <= 3,
                 })
+            if data.get("budget_limit_usd") is not None and data["budget_limit_usd"] > 0:
+                b_spent = data.get("budget_spent_usd", 0)
+                b_limit = data["budget_limit_usd"]
+                b_pct   = data.get("budget_percent", round(b_spent / b_limit * 100, 1))
+                rows.append({
+                    "type": "bar", "label": "Premium SKUs 預算",
+                    "percent": b_pct,
+                    "detail": f"${b_spent:.2f} / ${b_limit:.2f}",
+                    "color": self._pct_color(b_pct),
+                })
             if data.get("billed_usd") and data["billed_usd"] > 0:
                 rows.append(("已計費", f"${data['billed_usd']:.2f}", COLORS["peach"]))
             if data.get("next_billing"):

@@ -64,13 +64,14 @@ SERVICE_NAMES = {
     "browser_openrouter":     "OpenRouter (瀏覽器)",
 }
 
-_WIDGET_VERSION = "v1.12.0"
+_WIDGET_VERSION = "v4.4.2"
 
 _PAGE_URLS = [
     ("OpenAI 帳單",     "https://platform.openai.com/settings/organization/billing/overview?oclaw=1"),
     ("Claude.ai 用量",  "https://claude.ai/settings/usage?oclaw=1"),
     ("Claude API 帳單", "https://platform.claude.com/settings/billing?oclaw=1"),
     ("GitHub Copilot",  "https://github.com/settings/copilot/features?oclaw=1"),
+    ("GitHub Budgets",  "https://github.com/settings/billing/budgets?oclaw=1"),
     ("OpenRouter 餘額", "https://openrouter.ai/settings/credits?oclaw=1"),
     ("OpenRouter 用量", "https://openrouter.ai/activity?oclaw=1"),
 ]
@@ -80,6 +81,7 @@ _PAGE_URLS_FF = [
     ("Claude.ai 用量",  "https://claude.ai/settings/usage?oflaw=1"),
     ("Claude API 帳單", "https://platform.claude.com/settings/billing?oflaw=1"),
     ("GitHub Copilot",  "https://github.com/settings/copilot/features?oflaw=1"),
+    ("GitHub Budgets",  "https://github.com/settings/billing/budgets?oflaw=1"),
     ("OpenRouter 餘額", "https://openrouter.ai/settings/credits?oflaw=1"),
     ("OpenRouter 用量", "https://openrouter.ai/activity?oflaw=1"),
 ]

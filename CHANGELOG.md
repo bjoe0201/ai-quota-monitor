@@ -11,6 +11,22 @@
 
 ---
 
+## [4.4.2] - 2026-05-27
+
+### Added
+- `ai-monitor-client-v4.4.js`：新增 `@match https://github.com/settings/billing/budgets*`，支援 GitHub Billing Budgets 頁面
+- `ai-monitor-client-v4.4.js`：新增 `parseDOMGitHubBudgets()`，解析 "All Premium Request SKUs" 預算列（`$X.XX spent` / `$Y.YY budget`），透過 `[class*="LinkText"]` 精確抓取金額
+- `gui/widgets.py`：GitHub Copilot 卡片新增 **Premium SKUs 預算** 進度條（`budget_spent_usd` / `budget_limit_usd` / `budget_percent`）
+- `desktop_widget/cards.py`：同步新增 Premium SKUs 預算進度條
+- `desktop_widget/app.py` / `gui/app.py`：「開啟網頁」選單與一鍵全開（Chrome / Firefox）新增 `GitHub Budgets` 連結
+
+### Changed
+- `gui/app.py`：版號更新至 v4.4.2
+- `desktop_widget/app.py`：`_WIDGET_VERSION` 更新至 v4.4.2
+- `ai-monitor-client-v4.4.js`：github.com `expectedPath` 改為陣列，同時支援 `copilot/features` 與 `billing/budgets` 兩個路徑
+
+---
+
 ## [4.4.1] - 2026-05-15
 
 ### Fixed
