@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         AI Quota Monitor Client v4.4
 // @namespace    https://github.com/ai-quota-monitor
-// @version      4.4.3
+// @version      4.4.4
 // @description  v4.1 + OpenRouter 支援（API 攔截版，零 DOM 依賴）
 // @author       AI Quota Monitor
-// @updated      2026-06-05 — 相容 claude.ai 新路由 /new#settings/usage（v4.4.3）
+// @updated      2026-06-05 — 修復冷開啟 /new#settings/usage 仍觸發 ERR_QUIC（v4.4.4）
 // @match        https://platform.openai.com/settings/organization/billing/overview*
 // @match        https://claude.ai/settings/usage*
 // @match        https://claude.ai/new*
@@ -66,14 +66,40 @@
     const PAGE = PAGE_MAP[location.hostname];
     if (!PAGE) return;
 
+    // DOM 就緒後是否已確認在目標頁面（防止 SPA 過渡期誤判）
+    let _domConfirmed = false;
+
+    function _checkDOMConfirm() {
+        if (!PAGE.expectedHash) return true;
+        // /new#settings/usage：等 React 渲染出 Usage 頁面特徵元素才確認
+        // 特徵：heading 含 "Usage" 文字的元素，或含 data-testid/class 的用量容器
+        if (!document.body) return false;
+        const heading = document.querySelector('h1, h2, [role="heading"]');
+        if (heading && /usage/i.test(heading.textContent)) return true;
+        // 備用：含 "session" 或 "weekly" 關鍵字的元素（Usage 頁面特有）
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+            const t = node.textContent.trim().toLowerCase();
+            if (t === '5-hour session' || t === '7-day window' || t === 'usage' || t === 'message limit') return true;
+        }
+        return false;
+    }
+
     function isOnExpectedPage() {
         const paths = Array.isArray(PAGE.expectedPath) ? PAGE.expectedPath : [PAGE.expectedPath];
         const pathMatch = paths.some(p => location.pathname.startsWith(p));
         if (!pathMatch) return false;
-        // 若設定了 expectedHash，在 /new 路徑下需額外確認 hash（/new#settings/usage）
+        // 若設定了 expectedHash，在 /new 路徑下需額外確認 hash 與 DOM
         if (PAGE.expectedHash && location.pathname === '/new') {
             const hash = location.hash.replace(/^#/, '');
-            return hash.startsWith(PAGE.expectedHash);
+            if (!hash.startsWith(PAGE.expectedHash)) return false;
+            // DOM 尚未渲染 Usage 頁面前保持透通（防止 SPA 過渡期攔截聊天 API）
+            if (!_domConfirmed) {
+                _domConfirmed = _checkDOMConfirm();
+                return _domConfirmed;
+            }
+            return true;
         }
         return true;
     }
@@ -106,7 +132,7 @@
     let domParseSuccess = false;
     const MERGE_WINDOW = 2000; // 2 秒合併視窗
 
-    const LOG_PREFIX = '[AI Monitor v4.4.3]';
+    const LOG_PREFIX = '[AI Monitor v4.4.4]';
 
     // ─────────────────────────────────────────────
     //  DEBUG LOGGER
@@ -1130,7 +1156,7 @@
             'user-select:none',
         ].join(';');
         _dot.textContent = '⚡';
-        _dot.title = PAGE.label + ' v4.4.3 — 攔截模式\n點擊重新載入頁面';
+        _dot.title = PAGE.label + ' v4.4.4 — 攔截模式\n點擊重新載入頁面';
         _dot.addEventListener('click', () => {
             location.reload();
         });
@@ -1156,6 +1182,41 @@
     // ─────────────────────────────────────────────
     //  SPA NAVIGATION DETECTION
     // ─────────────────────────────────────────────
+    let _domWaitTimer = null;
+
+    function _waitForDOMConfirm() {
+        // 等 React 渲染出 Usage 頁面後再建 UI 並開始攔截
+        if (_domWaitTimer) return;
+        let tries = 0;
+        _domWaitTimer = setInterval(() => {
+            tries++;
+            if (_checkDOMConfirm()) {
+                _domConfirmed = true;
+                clearInterval(_domWaitTimer);
+                _domWaitTimer = null;
+                dbg('✓ DOM 確認：Usage 頁面已渲染（第', tries, '次嘗試）');
+                if (!_dot) {
+                    buildUI();
+                    setupPeriodicRefresh();
+                    setupTimeoutWarning();
+                }
+                setStatus('listening');
+            } else if (tries >= 15) {
+                // 15 次 × 500ms = 7.5 秒後放棄，改以 hash 為準
+                _domConfirmed = true;
+                clearInterval(_domWaitTimer);
+                _domWaitTimer = null;
+                dbg('⚠️ DOM 確認逾時，以 hash 為準繼續');
+                if (!_dot) {
+                    buildUI();
+                    setupPeriodicRefresh();
+                    setupTimeoutWarning();
+                }
+                setStatus('listening');
+            }
+        }, 500);
+    }
+
     function setupSPADetection() {
         let lastHref = location.href;
         setInterval(() => {
@@ -1163,14 +1224,20 @@
             lastHref = location.href;
             dbg('🔄 SPA 導航偵測:', lastHref);
             // Hook 已在 document-start 安裝，不需要重裝
-            // 但清空 pending / 重置 UI 狀態
+            // 但清空 pending / 重置 UI 與 DOM 確認狀態
             interceptCount = 0;
-            // 若導航到目標頁面但 UI 尚未建立（例如從 /new 其他 hash 進入），補初始化
-            if (isOnExpectedPage() && !_dot) {
-                buildUI();
-                setupPeriodicRefresh();
-                setupTimeoutWarning();
+            _domConfirmed = false;  // 每次導航重新確認 DOM 已渲染目標頁面
+            if (_domWaitTimer) { clearInterval(_domWaitTimer); _domWaitTimer = null; }
+            // 若 hash 指向 Usage 頁面，等 DOM 渲染後再建 UI
+            const hashMatch = PAGE.expectedHash &&
+                location.pathname === '/new' &&
+                location.hash.replace(/^#/, '').startsWith(PAGE.expectedHash);
+            if (hashMatch) {
+                _waitForDOMConfirm();
+                return;  // 後續 setStatus / installDOMObserver 由 _waitForDOMConfirm 完成
             }
+            // 離開 Usage 頁面：移除 _dot
+            if (_dot) { _dot.remove(); _dot = null; }
             setStatus('listening');
             if (isOnExpectedPage() && PAGE.key === 'github_copilot') {
                 if (_domObserver) { _domObserver.disconnect(); _domObserver = null; }
@@ -1267,7 +1334,7 @@
     // ─────────────────────────────────────────────
 
     // Phase 1: 在 document-start 立刻安裝 hook（此時 DOM 未就緒）
-    dbg('=== AI Quota Monitor v4.4.3 啟動 ===');
+    dbg('=== AI Quota Monitor v4.4.4 啟動 ===');
     dbg('頁面:', PAGE.label, '(' + PAGE.key + ')');
     dbg('規則數:', activeRules.length);
 
@@ -1277,10 +1344,35 @@
 
     // Phase 2: DOM Ready 後建立 UI 與生命週期
     function onDomReady() {
-        if (!isOnExpectedPage()) {
-            dbg('⏭️ 不在預期路徑，跳過 UI');
+        // 有 expectedHash（/new#settings/usage）的服務需等 React 渲染後才確認
+        const needDomWait = PAGE.expectedHash &&
+            location.pathname === '/new' &&
+            location.hash.replace(/^#/, '').startsWith(PAGE.expectedHash);
+
+        if (needDomWait) {
+            // SPA 情境：先裝好 SPA 偵測，再等 DOM 確認後建 UI
+            setupSPADetection();
+            _waitForDOMConfirm();
+            dbg('⏳ 等待 React 渲染 Usage 頁面後建立 UI');
             return;
         }
+
+        // 路徑不符（例如在聊天主頁 /new 但無 Usage hash）→ 只裝 SPA 偵測等候導航
+        const pathMatch = (() => {
+            const paths = Array.isArray(PAGE.expectedPath) ? PAGE.expectedPath : [PAGE.expectedPath];
+            return paths.some(p => location.pathname.startsWith(p));
+        })();
+        if (!pathMatch) {
+            dbg('⏭️ 不在預期路徑');
+            return;
+        }
+        if (!isOnExpectedPage()) {
+            // 在 /new 但 hash 不是 settings/usage → 裝 SPA 偵測等使用者導航過去
+            setupSPADetection();
+            dbg('⏭️ 路徑符合但 hash/DOM 不符，SPA 偵測待命');
+            return;
+        }
+
         buildUI();
         setupSPADetection();
         setupPeriodicRefresh();

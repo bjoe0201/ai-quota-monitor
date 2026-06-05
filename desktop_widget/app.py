@@ -64,7 +64,7 @@ SERVICE_NAMES = {
     "browser_openrouter":     "OpenRouter (瀏覽器)",
 }
 
-_WIDGET_VERSION = "v4.4.3"
+_WIDGET_VERSION = "v4.4.4"
 
 _PAGE_URLS = [
     ("OpenAI 帳單",     "https://platform.openai.com/settings/organization/billing/overview?oclaw=1"),

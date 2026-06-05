@@ -11,6 +11,18 @@
 
 ---
 
+## [4.4.4] - 2026-06-05
+
+### Fixed
+- `ai-monitor-client-v4.4.js`：修復冷開啟 `https://claude.ai/new#settings/usage` 一段時間後仍出現 ERR_QUIC_PROTOCOL_ERROR
+  - 根本原因：SPA 過渡期間 `location.hash` 已指向 `#settings/usage`，但 React 尚未渲染 Usage 頁面，此時聊天 API 被 fetch hook 攔截並執行 `response.clone()`，導致 QUIC 串流損毀
+  - 修正：新增 `_checkDOMConfirm()`，以 DOM 中是否存在 Usage 頁面特徵元素（heading 含 "Usage"、或 "5-hour session" 等關鍵字）作為二次確認
+  - 新增 `_waitForDOMConfirm()`：每 500ms 輪詢 DOM 確認，最多等待 7.5 秒；確認後才建立 UI 並開始攔截
+  - `onDomReady()` 重構：`/new#settings/usage` 路徑改用 `_waitForDOMConfirm()` 而非直接 `buildUI()`
+  - SPA 導航時同步重置 `_domConfirmed`，每次頁面切換都重新確認
+
+---
+
 ## [4.4.3] - 2026-06-05
 
 ### Fixed

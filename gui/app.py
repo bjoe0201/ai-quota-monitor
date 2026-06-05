@@ -104,7 +104,7 @@ class MainApp(tk.Tk):
         ).pack(anchor="w")
 
         tk.Label(
-            title_text, text="AI Quota Monitor  ·  v4.4.3",
+            title_text, text="AI Quota Monitor  ·  v4.4.4",
             fg=COLORS["subtext"], bg=COLORS["title_bg"],
             font=("Segoe UI", 8),
         ).pack(anchor="w")
