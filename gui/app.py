@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
 import queue
+import time
 import webbrowser
 import subprocess
 import sys
@@ -104,7 +105,7 @@ class MainApp(tk.Tk):
         ).pack(anchor="w")
 
         tk.Label(
-            title_text, text="AI Quota Monitor  ·  v4.4.4",
+            title_text, text="AI Quota Monitor  ·  v4.4.5",
             fg=COLORS["subtext"], bg=COLORS["title_bg"],
             font=("Segoe UI", 8),
         ).pack(anchor="w")
@@ -414,6 +415,22 @@ class MainApp(tk.Tk):
         ("GitHub Budgets",     "https://github.com/settings/billing/budgets?oclaw=1"),
     ]
 
+    # claude.ai SPA 需要先載入根頁，再開 Usage 分頁
+    _CLAUDE_WARMUP_URL = "https://claude.ai/"
+    _CLAUDE_USAGE_DELAY = 1.5  # 秒
+
+    @staticmethod
+    def _open_url(url: str):
+        """開啟單一 URL，Claude.ai Usage 頁面需先暖機。"""
+        if "claude.ai/new" in url and "settings/usage" in url:
+            def _warmup():
+                webbrowser.open(MainApp._CLAUDE_WARMUP_URL)
+                time.sleep(MainApp._CLAUDE_USAGE_DELAY)
+                webbrowser.open(url)
+            threading.Thread(target=_warmup, daemon=True).start()
+        else:
+            webbrowser.open(url)
+
     _oclaw_hwnds: set = set()  # 追蹤「一鍵全開」開啟的 Chrome 視窗 HWND
     _oflaw_hwnds: set = set()  # 追蹤「一鍵全開」開啟的 Firefox 視窗 HWND
 
@@ -486,26 +503,38 @@ class MainApp(tk.Tk):
         return set(hwnds)
 
     def _open_all_in_new_window(self):
-        """Open all four URLs in a single new Chrome window, track new HWNDs."""
-        urls = [url for _, url in self._PAGE_URLS]
+        """Open all URLs in a new Chrome window. Claude.ai Usage needs a warmup tab first."""
+        all_urls = [url for _, url in self._PAGE_URLS]
+        claude_url = next((u for u in all_urls if "claude.ai/new" in u and "settings/usage" in u), None)
+        other_urls = [u for u in all_urls if u != claude_url]
+
         chrome = self._find_chrome()
         if not chrome:
-            for url in urls:
-                webbrowser.open(url)
+            for url in all_urls:
+                self._open_url(url)
             return
+
         self._close_oclaw_window()
         before = self._get_chrome_hwnds()
-        subprocess.Popen([chrome, "--new-window"] + urls)
-        def track():
-            import time
-            for _ in range(20):  # up to 5s
+
+        def _do_open():
+            # 先開其他頁
+            subprocess.Popen([chrome, "--new-window"] + other_urls)
+            # 追蹤新視窗 HWND
+            for _ in range(20):
                 time.sleep(0.25)
                 after = self._get_chrome_hwnds()
                 new = after - before
                 if new:
                     MainApp._oclaw_hwnds.update(new)
-                    return
-        threading.Thread(target=track, daemon=True).start()
+                    break
+            # Claude.ai 暖機後開 Usage
+            if claude_url:
+                subprocess.Popen([chrome, self._CLAUDE_WARMUP_URL])
+                time.sleep(self._CLAUDE_USAGE_DELAY)
+                subprocess.Popen([chrome, claude_url])
+
+        threading.Thread(target=_do_open, daemon=True).start()
 
     def _close_oclaw_window(self):
         """Close tracked Chrome windows (Win32) or oclaw-tagged tabs (macOS)."""
@@ -538,26 +567,38 @@ class MainApp(tk.Tk):
             subprocess.run(["osascript", "-e", script])
 
     def _open_all_in_firefox(self):
-        """Open all four URLs in a single new Firefox window, track new HWNDs."""
-        urls = [url for _, url in self._PAGE_URLS]
+        """Open all URLs in a new Firefox window. Claude.ai Usage needs a warmup tab first."""
+        all_urls = [url for _, url in self._PAGE_URLS]
+        claude_url = next((u for u in all_urls if "claude.ai/new" in u and "settings/usage" in u), None)
+        other_urls = [u for u in all_urls if u != claude_url]
+        # Firefox 的 oclaw marker 改成 oflaw（_PAGE_URLS 用 oclaw，Firefox 應用 _PAGE_URLS_FF）
+        # 但 _open_all_in_firefox 原本直接用 _PAGE_URLS，保持相同行為
+
         firefox = self._find_firefox()
         if not firefox:
-            for url in urls:
-                webbrowser.open(url)
+            for url in all_urls:
+                self._open_url(url)
             return
+
         self._close_oflaw_window()
         before = self._get_firefox_hwnds()
-        subprocess.Popen([firefox, "--new-window"] + urls)
-        def track():
-            import time
-            for _ in range(20):  # up to 5s
+
+        def _do_open():
+            subprocess.Popen([firefox, "--new-window"] + other_urls)
+            for _ in range(20):
                 time.sleep(0.25)
                 after = self._get_firefox_hwnds()
                 new = after - before
                 if new:
                     MainApp._oflaw_hwnds.update(new)
-                    return
-        threading.Thread(target=track, daemon=True).start()
+                    break
+            if claude_url:
+                warmup = self._CLAUDE_WARMUP_URL
+                subprocess.Popen([firefox, warmup])
+                time.sleep(self._CLAUDE_USAGE_DELAY)
+                subprocess.Popen([firefox, claude_url])
+
+        threading.Thread(target=_do_open, daemon=True).start()
 
     def _close_oflaw_window(self):
         """Close tracked Firefox windows (Win32 only)."""
@@ -578,7 +619,7 @@ class MainApp(tk.Tk):
                        font=("Segoe UI", 9), relief="flat", bd=0)
         for label, url in self._PAGE_URLS:
             menu.add_command(label=f"  {label}",
-                             command=lambda u=url: webbrowser.open(u))
+                             command=lambda u=url: self._open_url(u))
         menu.add_separator()
         menu.add_command(label="  🌐 一鍵全開 (Chrome)",
                          command=self._open_all_in_new_window)

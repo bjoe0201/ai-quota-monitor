@@ -14,6 +14,7 @@ import queue
 import subprocess
 import sys
 import threading
+import time
 import webbrowser
 from datetime import datetime
 from pathlib import Path
@@ -64,7 +65,7 @@ SERVICE_NAMES = {
     "browser_openrouter":     "OpenRouter (瀏覽器)",
 }
 
-_WIDGET_VERSION = "v4.4.4"
+_WIDGET_VERSION = "v4.4.5"
 
 _PAGE_URLS = [
     ("OpenAI 帳單",     "https://platform.openai.com/settings/organization/billing/overview?oclaw=1"),
@@ -88,6 +89,21 @@ _PAGE_URLS_FF = [
 
 _oclaw_hwnds: set = set()  # 追蹤「一鍵全開」開啟的 Chrome 視窗 HWND
 _oflaw_hwnds: set = set()  # 追蹤「一鍵全開」開啟的 Firefox 視窗 HWND
+
+_CLAUDE_WARMUP_URL = "https://claude.ai/"
+_CLAUDE_USAGE_DELAY = 1.5  # 秒，讓 SPA 完成初始載入後再開 Usage 頁
+
+
+def _open_url(url: str):
+    """開啟單一 URL，Claude.ai Usage 頁面需先暖機。"""
+    if "claude.ai/new" in url and "settings/usage" in url:
+        def _warmup():
+            webbrowser.open(_CLAUDE_WARMUP_URL)
+            time.sleep(_CLAUDE_USAGE_DELAY)
+            webbrowser.open(url)
+        threading.Thread(target=_warmup, daemon=True).start()
+    else:
+        webbrowser.open(url)
 
 
 def _find_chrome() -> str | None:
@@ -125,6 +141,15 @@ def _find_firefox() -> str | None:
 
 
 def _open_in_chrome(url: str):
+    if "claude.ai/new" in url and "settings/usage" in url:
+        def _warmup():
+            chrome = _find_chrome()
+            opener = (lambda u: subprocess.Popen([chrome, u])) if chrome else webbrowser.open
+            opener(_CLAUDE_WARMUP_URL)
+            time.sleep(_CLAUDE_USAGE_DELAY)
+            opener(url)
+        threading.Thread(target=_warmup, daemon=True).start()
+        return
     chrome = _find_chrome()
     if chrome:
         subprocess.Popen([chrome, url])
@@ -133,6 +158,15 @@ def _open_in_chrome(url: str):
 
 
 def _open_in_firefox(url: str):
+    if "claude.ai/new" in url and "settings/usage" in url:
+        def _warmup():
+            firefox = _find_firefox()
+            opener = (lambda u: subprocess.Popen([firefox, u])) if firefox else webbrowser.open
+            opener(_CLAUDE_WARMUP_URL)
+            time.sleep(_CLAUDE_USAGE_DELAY)
+            opener(url)
+        threading.Thread(target=_warmup, daemon=True).start()
+        return
     firefox = _find_firefox()
     if firefox:
         subprocess.Popen([firefox, url])
@@ -181,14 +215,16 @@ def _get_firefox_hwnds() -> set:
 
 
 def _open_all_in_new_window():
-    """Open all four URLs in a single new Chrome window, track new HWNDs."""
-    urls = [url for _, url in _PAGE_URLS]
+    """Open all URLs in a new Chrome window. Claude.ai Usage needs a warmup tab first."""
+    all_urls = [url for _, url in _PAGE_URLS]
+    claude_url = next((u for u in all_urls if "claude.ai/new" in u and "settings/usage" in u), None)
+    other_urls = [u for u in all_urls if u != claude_url]
+
     if sys.platform == "darwin":
         _close_oclaw_window()
-        # Use AppleScript to open URLs in a new Chrome window within the
-        # existing Chrome instance — avoids spawning duplicate Chrome processes.
-        tab_cmds = f'set URL of active tab to "{urls[0]}"\n'
-        for u in urls[1:]:
+        # macOS: AppleScript 開其他頁；Claude 用暖機流程
+        tab_cmds = f'set URL of active tab to "{other_urls[0]}"\n'
+        for u in other_urls[1:]:
             tab_cmds += f'        make new tab with properties {{URL:"{u}"}}\n'
         script = (
             'tell application "Google Chrome"\n'
@@ -200,27 +236,53 @@ def _open_all_in_new_window():
             'end tell'
         )
         subprocess.Popen(["osascript", "-e", script])
+        if claude_url:
+            def _mac_claude():
+                time.sleep(_CLAUDE_USAGE_DELAY)
+                warmup_script = (
+                    'tell application "Google Chrome"\n'
+                    f'    tell front window\n'
+                    f'        make new tab with properties {{URL:"{_CLAUDE_WARMUP_URL}"}}\n'
+                    '    end tell\n'
+                    'end tell'
+                )
+                subprocess.Popen(["osascript", "-e", warmup_script])
+                time.sleep(_CLAUDE_USAGE_DELAY)
+                usage_script = (
+                    'tell application "Google Chrome"\n'
+                    f'    tell front window\n'
+                    f'        make new tab with properties {{URL:"{claude_url}"}}\n'
+                    '    end tell\n'
+                    'end tell'
+                )
+                subprocess.Popen(["osascript", "-e", usage_script])
+            threading.Thread(target=_mac_claude, daemon=True).start()
         return
+
     chrome = _find_chrome()
     if not chrome:
-        for url in urls:
-            webbrowser.open(url)
+        for url in all_urls:
+            _open_url(url)
         return
+
     _close_oclaw_window()
     before = _get_chrome_hwnds()
-    subprocess.Popen([chrome, "--new-window"] + urls)
-    # Wait for new window to appear, then record its HWND
-    import threading
-    def track():
-        import time
-        for _ in range(20):  # up to 5s
+
+    def _do_open():
+        subprocess.Popen([chrome, "--new-window"] + other_urls)
+        for _ in range(20):
             time.sleep(0.25)
             after = _get_chrome_hwnds()
             new = after - before
             if new:
                 _oclaw_hwnds.update(new)
-                return
-    threading.Thread(target=track, daemon=True).start()
+                break
+        if claude_url:
+            subprocess.Popen([chrome, _CLAUDE_WARMUP_URL])
+            time.sleep(_CLAUDE_USAGE_DELAY)
+            subprocess.Popen([chrome, claude_url])
+
+    threading.Thread(target=_do_open, daemon=True).start()
 
 
 def _close_oclaw_window():
@@ -255,27 +317,35 @@ def _close_oclaw_window():
 
 
 def _open_all_in_firefox():
-    """Open all four URLs in a single new Firefox window, track new HWNDs."""
-    urls = [url for _, url in _PAGE_URLS_FF]
+    """Open all URLs in a new Firefox window. Claude.ai Usage needs a warmup tab first."""
+    all_urls = [url for _, url in _PAGE_URLS_FF]
+    claude_url = next((u for u in all_urls if "claude.ai/new" in u and "settings/usage" in u), None)
+    other_urls = [u for u in all_urls if u != claude_url]
+
     firefox = _find_firefox()
     if not firefox:
-        for url in urls:
-            webbrowser.open(url)
+        for url in all_urls:
+            _open_url(url)
         return
+
     _close_oflaw_window()
     before = _get_firefox_hwnds()
-    subprocess.Popen([firefox, "--new-window"] + urls)
-    import threading
-    def track():
-        import time
-        for _ in range(20):  # up to 5s
+
+    def _do_open():
+        subprocess.Popen([firefox, "--new-window"] + other_urls)
+        for _ in range(20):
             time.sleep(0.25)
             after = _get_firefox_hwnds()
             new = after - before
             if new:
                 _oflaw_hwnds.update(new)
-                return
-    threading.Thread(target=track, daemon=True).start()
+                break
+        if claude_url:
+            subprocess.Popen([firefox, _CLAUDE_WARMUP_URL])
+            time.sleep(_CLAUDE_USAGE_DELAY)
+            subprocess.Popen([firefox, claude_url])
+
+    threading.Thread(target=_do_open, daemon=True).start()
 
 
 def _close_oflaw_window():

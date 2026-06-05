@@ -11,15 +11,20 @@
 
 ---
 
-## [4.4.4] - 2026-06-05
+## [4.4.5] - 2026-06-05
 
 ### Fixed
-- `ai-monitor-client-v4.4.js`：修復冷開啟 `https://claude.ai/new#settings/usage` 一段時間後仍出現 ERR_QUIC_PROTOCOL_ERROR
-  - 根本原因：SPA 過渡期間 `location.hash` 已指向 `#settings/usage`，但 React 尚未渲染 Usage 頁面，此時聊天 API 被 fetch hook 攔截並執行 `response.clone()`，導致 QUIC 串流損毀
-  - 修正：新增 `_checkDOMConfirm()`，以 DOM 中是否存在 Usage 頁面特徵元素（heading 含 "Usage"、或 "5-hour session" 等關鍵字）作為二次確認
-  - 新增 `_waitForDOMConfirm()`：每 500ms 輪詢 DOM 確認，最多等待 7.5 秒；確認後才建立 UI 並開始攔截
-  - `onDomReady()` 重構：`/new#settings/usage` 路徑改用 `_waitForDOMConfirm()` 而非直接 `buildUI()`
-  - SPA 導航時同步重置 `_domConfirmed`，每次頁面切換都重新確認
+- `desktop_widget/app.py`、`gui/app.py`：修復 Claude.ai 用量頁面開啟後出現 ERR_QUIC_PROTOCOL_ERROR
+  - 根本原因：直接開啟 `claude.ai/new#settings/usage` 時，SPA 尚未初始化，fetch hook 在過渡期間攔截聊天 API 導致 QUIC 串流損毀
+  - 修正：開啟 Claude.ai 用量前先開 `https://claude.ai/`（新分頁）讓 SPA 完成初始載入，等待 1.5 秒後再開 Usage 頁面
+  - 新增 `_open_url()` / `_open_in_chrome()` / `_open_in_firefox()` 的 Claude.ai 暖機邏輯
+  - 「一鍵全開」（Chrome / Firefox）同步修正：先開其他頁，再以暖機流程開 Claude.ai 用量
+  - macOS AppleScript 路徑亦同步處理
+- `ai-monitor-client-v4.4.js`：`onDomReady()` 在 `/new` 聊天主頁（hash 不符）時仍安裝 SPA 偵測，確保使用者手動導航到 `#settings/usage` 時能補建 UI
+
+### Changed
+- `gui/app.py`：新增 `import time`；`_open_all_in_new_window` / `_open_all_in_firefox` 改用背景執行緒處理暖機延遲
+- `desktop_widget/app.py`：新增 `import time`；同上
 
 ---
 
