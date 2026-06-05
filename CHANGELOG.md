@@ -11,6 +11,19 @@
 
 ---
 
+## [4.4.3] - 2026-06-05
+
+### Fixed
+- `ai-monitor-client-v4.4.js`：相容 claude.ai 新路由 `/new#settings/usage`（原 `/settings/usage` 已遷移）
+  - `@match` 新增 `https://claude.ai/new*`
+  - `isOnExpectedPage()` 加入 hash 判斷（`location.hash` 以 `settings/usage` 開頭才視為目標頁面）
+  - fetch / XHR hook 加入早期退出：不在目標頁面時完全透通，防止干擾聊天主頁（修復 ERR_QUIC_PROTOCOL_ERROR）
+  - SPA 偵測：從 `/new` 其他 hash 導航至 `#settings/usage` 時補建 UI
+- `desktop_widget/app.py`：Claude.ai 用量開啟 URL 更新為 `claude.ai/new?oclaw=1#settings/usage` / `?oflaw=1`
+- `gui/app.py`：同步更新 Claude.ai 用量 URL
+
+---
+
 ## [4.4.2] - 2026-05-27
 
 ### Added

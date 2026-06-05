@@ -104,7 +104,7 @@ class MainApp(tk.Tk):
         ).pack(anchor="w")
 
         tk.Label(
-            title_text, text="AI Quota Monitor  ·  v4.4.2",
+            title_text, text="AI Quota Monitor  ·  v4.4.3",
             fg=COLORS["subtext"], bg=COLORS["title_bg"],
             font=("Segoe UI", 8),
         ).pack(anchor="w")
@@ -408,7 +408,7 @@ class MainApp(tk.Tk):
 
     _PAGE_URLS = [
         ("OpenAI 帳單",        "https://platform.openai.com/settings/organization/billing/overview?oclaw=1"),
-        ("Claude.ai 用量",     "https://claude.ai/settings/usage?oclaw=1"),
+        ("Claude.ai 用量",     "https://claude.ai/new?oclaw=1#settings/usage"),
         ("Claude API 帳單",    "https://platform.claude.com/settings/billing?oclaw=1"),
         ("GitHub Copilot",     "https://github.com/settings/copilot/features?oclaw=1"),
         ("GitHub Budgets",     "https://github.com/settings/billing/budgets?oclaw=1"),

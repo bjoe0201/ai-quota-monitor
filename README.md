@@ -23,7 +23,7 @@
 
 | 服務 | 監控來源 | 顯示資訊 |
 |------|----------|----------|
-| **Claude.ai** | claude.ai/settings/usage | 工作階段用量 %、每週限額 %、額外用量餘額 |
+| **Claude.ai** | claude.ai/new#settings/usage | 工作階段用量 %、每週限額 %、額外用量餘額 |
 | **GitHub Copilot** | github.com/settings/copilot/features | Premium Requests 已用 / 總量 / % |
 | **GitHub Budgets** | github.com/settings/billing/budgets | Premium SKUs 預算 spent / budget / % |
 | **OpenAI** | platform.openai.com/settings/billing | 帳戶餘額、Credits 用量 %、月消費 |
@@ -111,7 +111,7 @@ pip3.11 install -r requirements.txt
 
 | 版本 | 檔案 | 說明 | 狀態 |
 |------|------|------|------|
-| **v4.4.2（推薦）** | `ai-monitor-client-v4.4.js` | v4.4.1 + GitHub Billing Budgets 頁面支援，顯示 Premium SKUs 預算進度條 | ✅ 目前維護 |
+| **v4.4.3（推薦）** | `ai-monitor-client-v4.4.js` | v4.4.2 + 相容 claude.ai 新路由 `/new#settings/usage`，修復腳本干擾聊天主頁問題 | ✅ 目前維護 |
 
 ---
 
@@ -121,7 +121,7 @@ pip3.11 install -r requirements.txt
 
 | 服務 | URL |
 |------|-----|
-| Claude.ai 用量 | `https://claude.ai/settings/usage` |
+| Claude.ai 用量 | `https://claude.ai/new#settings/usage` |
 | GitHub Copilot | `https://github.com/settings/copilot/features` |
 | GitHub Budgets | `https://github.com/settings/billing/budgets` |
 | OpenAI 帳單 | `https://platform.openai.com/settings/organization/billing/overview` |

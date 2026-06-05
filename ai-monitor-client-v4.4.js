@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         AI Quota Monitor Client v4.4
 // @namespace    https://github.com/ai-quota-monitor
-// @version      4.4.2
+// @version      4.4.3
 // @description  v4.1 + OpenRouter 支援（API 攔截版，零 DOM 依賴）
 // @author       AI Quota Monitor
-// @updated      2026-05-27 — 新增 GitHub Billing Budgets 頁面支援（v4.4.2）
+// @updated      2026-06-05 — 相容 claude.ai 新路由 /new#settings/usage（v4.4.3）
 // @match        https://platform.openai.com/settings/organization/billing/overview*
 // @match        https://claude.ai/settings/usage*
+// @match        https://claude.ai/new*
 // @match        https://platform.claude.com/settings/billing*
 // @match        https://github.com/settings/copilot/features*
 // @match        https://github.com/settings/billing/budgets*
@@ -38,7 +39,8 @@
         'claude.ai': {
             key: 'claude_usage',
             label: 'Claude Usage',
-            expectedPath: '/settings/usage',
+            expectedPath: ['/settings/usage', '/new'],
+            expectedHash: 'settings/usage',   // /new#settings/usage 新路由
             refreshInterval: 1 * 60 * 1000,   // 3 分鐘
         },
         'platform.claude.com': {
@@ -66,7 +68,14 @@
 
     function isOnExpectedPage() {
         const paths = Array.isArray(PAGE.expectedPath) ? PAGE.expectedPath : [PAGE.expectedPath];
-        return paths.some(p => location.pathname.startsWith(p));
+        const pathMatch = paths.some(p => location.pathname.startsWith(p));
+        if (!pathMatch) return false;
+        // 若設定了 expectedHash，在 /new 路徑下需額外確認 hash（/new#settings/usage）
+        if (PAGE.expectedHash && location.pathname === '/new') {
+            const hash = location.hash.replace(/^#/, '');
+            return hash.startsWith(PAGE.expectedHash);
+        }
+        return true;
     }
 
     // ─────────────────────────────────────────────
@@ -97,7 +106,7 @@
     let domParseSuccess = false;
     const MERGE_WINDOW = 2000; // 2 秒合併視窗
 
-    const LOG_PREFIX = '[AI Monitor v4.4.2]';
+    const LOG_PREFIX = '[AI Monitor v4.4.3]';
 
     // ─────────────────────────────────────────────
     //  DEBUG LOGGER
@@ -994,6 +1003,9 @@
         }
 
         win.fetch = function (...args) {
+            // 不在目標頁面時完全透通，避免干擾其他頁面（例如聊天主頁）
+            if (!isOnExpectedPage()) return _realFetch.apply(this, args);
+
             let url;
             try {
                 url = args[0] instanceof Request ? args[0].url : String(args[0]);
@@ -1049,8 +1061,9 @@
         XHR.prototype.send = function (...args) {
             this.addEventListener('load', function () {
                 const url = this._aimon_url || '';
-                // 【效能修正】先檢查 URL，不相關就跳過同步 JSON.parse
-                if (isUrlRelevant(url) && this.status >= 200 && this.status < 300) {
+                // 不在目標頁面、或 URL 不相關時跳過
+                if (!isOnExpectedPage() || !isUrlRelevant(url)) return;
+                if (this.status >= 200 && this.status < 300) {
                     const ct = (this.getResponseHeader('content-type') || '');
                     if (ct.includes('json') && this.responseText) {
                         try {
@@ -1117,7 +1130,7 @@
             'user-select:none',
         ].join(';');
         _dot.textContent = '⚡';
-        _dot.title = PAGE.label + ' v4.4.2 — 攔截模式\n點擊重新載入頁面';
+        _dot.title = PAGE.label + ' v4.4.3 — 攔截模式\n點擊重新載入頁面';
         _dot.addEventListener('click', () => {
             location.reload();
         });
@@ -1152,6 +1165,12 @@
             // Hook 已在 document-start 安裝，不需要重裝
             // 但清空 pending / 重置 UI 狀態
             interceptCount = 0;
+            // 若導航到目標頁面但 UI 尚未建立（例如從 /new 其他 hash 進入），補初始化
+            if (isOnExpectedPage() && !_dot) {
+                buildUI();
+                setupPeriodicRefresh();
+                setupTimeoutWarning();
+            }
             setStatus('listening');
             if (isOnExpectedPage() && PAGE.key === 'github_copilot') {
                 if (_domObserver) { _domObserver.disconnect(); _domObserver = null; }
@@ -1248,7 +1267,7 @@
     // ─────────────────────────────────────────────
 
     // Phase 1: 在 document-start 立刻安裝 hook（此時 DOM 未就緒）
-    dbg('=== AI Quota Monitor v4.4.2 啟動 ===');
+    dbg('=== AI Quota Monitor v4.4.3 啟動 ===');
     dbg('頁面:', PAGE.label, '(' + PAGE.key + ')');
     dbg('規則數:', activeRules.length);
 
