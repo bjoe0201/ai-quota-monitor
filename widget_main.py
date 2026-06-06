@@ -21,6 +21,22 @@ os.chdir(base_dir)
 if base_dir not in sys.path:
     sys.path.insert(0, base_dir)
 
+# ── WebView Worker 模式（子程序入口）────────────────────────────────────
+# 打包後 sys.executable 就是本 EXE；用 --webview-worker flag 讓主 EXE 兼作 worker。
+if "--webview-worker" in sys.argv:
+    from services.webview_worker import main as _worker_main
+    _worker_main()
+    sys.exit(0)
+
+# ── Single-instance 保護（Windows Mutex）────────────────────────────────
+_mutex = None
+if sys.platform == "win32":
+    import ctypes
+    _mutex = ctypes.windll.kernel32.CreateMutexW(None, True, "AI額度監控-桌面小工具-SingleInstance")
+    if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+        ctypes.windll.kernel32.CloseHandle(_mutex)
+        sys.exit(0)
+
 # ── 啟動桌面小工具 ────────────────────────────────────────────────────────
 from desktop_widget.app import DesktopWidget
 from desktop_widget.tray import SystemTray, is_available as tray_available

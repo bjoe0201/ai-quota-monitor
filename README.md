@@ -115,6 +115,8 @@ pip3.11 install -r requirements.txt
 |------|------|------|------|
 | **v4.4.7（推薦）** | `ai-monitor-client-v4.4.js` | 修復 Claude.ai hash 導航不觸發 Usage API，`?oclaw=1` 自動設定 hash 並 reload | ✅ 目前維護 |
 
+> 💡 **桌面程式版本**：v4.5.1（修復 WebView 打包後無法啟動、single-instance 保護、cp950 編碼崩潰等問題）
+
 > 💡 **v4.5 新增 WebView 模式**：不需安裝 Tampermonkey 腳本，透過內嵌瀏覽器自動擷取。詳見下方「WebView 模式」說明。
 
 ---

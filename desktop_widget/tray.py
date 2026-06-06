@@ -89,7 +89,9 @@ class SystemTray:
         app.after(0, app.refresh_all)
 
     def _on_open_main(self, icon, item):
-        """啟動主視窗 (main.py)。"""
+        """啟動主視窗 (main.py)，打包版不支援。"""
+        if hasattr(sys, "_MEIPASS"):
+            return
         main_py = Path(sys.argv[0]).parent / "main.py"
         try:
             subprocess.Popen([sys.executable, str(main_py)],

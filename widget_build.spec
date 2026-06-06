@@ -24,6 +24,7 @@ a = Analysis(
         'services.base',
         'services.webview_bridge',
         'services.webview_fetcher',
+        'services.webview_worker',
         'config.manager',
         'gui.widgets',
         'desktop_widget.app',
@@ -92,7 +93,7 @@ if sys.platform == 'darwin':
         bundle_identifier='com.aimonitor.widget',
         info_plist={
             'NSHighResolutionCapable': True,
-            'CFBundleShortVersionString': '4.5.0',
+            'CFBundleShortVersionString': '4.5.1',
             'LSUIElement': False,
         },
     )

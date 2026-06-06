@@ -66,7 +66,7 @@ SERVICE_NAMES = {
     "browser_openrouter":     "OpenRouter (瀏覽器)",
 }
 
-_WIDGET_VERSION = "v4.5.0"
+_WIDGET_VERSION = "v4.5.1"
 
 _PAGE_URLS = [
     ("OpenAI 帳單",     "https://platform.openai.com/settings/organization/billing/overview?oclaw=1"),
@@ -727,6 +727,9 @@ class DesktopWidget(tk.Tk):
         _open_all_in_new_window()
 
     def _open_main_window(self):
+        # 打包後 sys.executable 就是本程式自身，不要重複啟動
+        if hasattr(sys, "_MEIPASS"):
+            return
         main_py = Path(sys.argv[0]).parent / "main.py"
         try:
             subprocess.Popen(

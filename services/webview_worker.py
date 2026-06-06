@@ -26,7 +26,10 @@ import time
 import urllib.request
 import urllib.error
 
-_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if hasattr(sys, "_MEIPASS"):
+    _BASE = sys._MEIPASS
+else:
+    _BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _BASE not in sys.path:
     sys.path.insert(0, _BASE)
 
@@ -332,7 +335,7 @@ class WebviewWorker:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=7890)
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()  # ignore --webview-worker and other flags
     worker = WebviewWorker(args.port)
     worker.run()
 

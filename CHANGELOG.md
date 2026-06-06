@@ -11,6 +11,19 @@
 
 ---
 
+## [4.5.1] - 2026-06-07
+
+### Fixed
+- **WebView 模式打包後無法啟動**：打包版 `sys.executable` 是主 EXE 本身，無法直接執行 `.py` 檔；改為讓主 EXE 以 `--webview-worker` flag 兼作 worker 入口（`widget_main.py` 最頂層攔截，呼叫 `webview_worker.main()` 後退出）
+- **WebView worker argparse 崩潰**：`webview_worker.main()` 的 `argparse.parse_args()` 將 `--webview-worker` 視為未知參數並 `sys.exit(2)`，導致 worker 立即死亡；改用 `parse_known_args()` 忽略 entry-point flags
+- **`_monitor_stdout` thread 崩潰**：Worker stdout 含非 ASCII 字元，`print()` 在 Windows cp950 console 拋 `UnicodeEncodeError` 導致 thread crash，`READY` 信號永遠收不到；改為整個迴圈 `try/except`，worker log 行靜默丟棄
+- **多重實例卡死系統**：打包後缺少 single-instance 保護，改為 Windows Mutex 防止第二個實例啟動
+- **「開啟主視窗」打包後啟動自身**：`_open_main_window` / `_on_open_main` 在打包環境（`sys._MEIPASS`）下直接 return，不再嘗試以 EXE 執行 `main.py`
+- `widget_build.spec`：新增 `services.webview_worker` 至 `hiddenimports`，確保 PyInstaller 打包時包含
+- `services/webview_worker.py`：打包後 `_BASE` 改用 `sys._MEIPASS`，確保 `assets/ai-monitor-webview.js` 路徑正確
+
+---
+
 ## [4.5.0] - 2026-06-07
 
 ### Added
@@ -224,7 +237,14 @@
 
 ---
 
-[Unreleased]: https://github.com/bjoe0201/ai-quota-monitor/compare/v4.4.1...HEAD
+[Unreleased]: https://github.com/bjoe0201/ai-quota-monitor/compare/v4.5.1...HEAD
+[4.5.1]: https://github.com/bjoe0201/ai-quota-monitor/compare/v4.5.0...v4.5.1
+[4.5.0]: https://github.com/bjoe0201/ai-quota-monitor/compare/v4.4.7...v4.5.0
+[4.4.7]: https://github.com/bjoe0201/ai-quota-monitor/compare/v4.4.5...v4.4.7
+[4.4.5]: https://github.com/bjoe0201/ai-quota-monitor/compare/v4.4.4...v4.4.5
+[4.4.4]: https://github.com/bjoe0201/ai-quota-monitor/compare/v4.4.3...v4.4.4
+[4.4.3]: https://github.com/bjoe0201/ai-quota-monitor/compare/v4.4.2...v4.4.3
+[4.4.2]: https://github.com/bjoe0201/ai-quota-monitor/compare/v4.4.1...v4.4.2
 [4.4.1]: https://github.com/bjoe0201/ai-quota-monitor/compare/v4.4.0...v4.4.1
 [4.4.0]: https://github.com/bjoe0201/ai-quota-monitor/compare/v4.3.0...v4.4.0
 [4.3.0]: https://github.com/bjoe0201/ai-quota-monitor/compare/v4.2.0...v4.3.0

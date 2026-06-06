@@ -42,6 +42,8 @@ _WORKER_PATH = os.path.join(
     "services",
     "webview_worker.py",
 )
+# 打包後 _MEIPASS 存在，用主 EXE 的 --webview-worker flag 啟動 worker
+_IS_FROZEN = hasattr(sys, "_MEIPASS")
 
 
 class WebviewFetcher:
@@ -67,13 +69,17 @@ class WebviewFetcher:
         self._launch_worker()
 
     def _launch_worker(self) -> None:
-        python = sys.executable
+        if _IS_FROZEN:
+            # 打包版：用主 EXE 以 --webview-worker flag 執行 worker 邏輯
+            cmd = [sys.executable, "--webview-worker", "--port", str(self._port)]
+        else:
+            cmd = [sys.executable, _WORKER_PATH, "--port", str(self._port)]
         try:
             self._proc = subprocess.Popen(
-                [python, _WORKER_PATH, "--port", str(self._port)],
+                cmd,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
+                stderr=subprocess.DEVNULL,
                 text=True,
                 encoding="utf-8",
                 errors="replace",
@@ -89,21 +95,22 @@ class WebviewFetcher:
         if not self._proc or not self._proc.stdout:
             return
         for line in self._proc.stdout:
-            line = line.rstrip()
-            if not line:
-                continue
-            if "READY" in line:
-                self._ready.set()
-            elif "LOGIN_DONE" in line:
-                # Worker confirmed login done — schedule a refresh after short delay
-                import threading as _t
-                def _post_login_refresh():
-                    import time
-                    time.sleep(1.5)
-                    self.refresh_all()
-                _t.Thread(target=_post_login_refresh, daemon=True).start()
-            else:
-                print(f"[WebviewWorker] {line}")
+            try:
+                line = line.rstrip()
+                if not line:
+                    continue
+                if "READY" in line:
+                    self._ready.set()
+                elif "LOGIN_DONE" in line:
+                    import threading as _t
+                    def _post_login_refresh():
+                        import time
+                        time.sleep(1.5)
+                        self.refresh_all()
+                    _t.Thread(target=_post_login_refresh, daemon=True).start()
+                # else: silently discard worker log lines to avoid cp950 console encode errors
+            except Exception:
+                pass
 
     def wait_ready(self, timeout: float = 20.0) -> bool:
         """Block until the worker reports ready. Returns True on success."""
