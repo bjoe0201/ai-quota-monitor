@@ -3,3 +3,6 @@ requests>=2.31.0
 # 桌面小工具額外依賴（widget_main.py）
 pystray>=0.19.4
 Pillow>=9.0.0
+
+# WebView 背景擷取模式（可選，設定切換至 webview 模式時需要）
+pywebview>=5.0.6  # 實際安裝 6.2.1

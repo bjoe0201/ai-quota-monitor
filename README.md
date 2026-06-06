@@ -1,6 +1,7 @@
 # AI 額度監控 · 桌面小工具
 
-> 跨平台（Windows / macOS）桌面小工具 + Tampermonkey 瀏覽器腳本，即時監控 OpenAI、Claude、GitHub Copilot、OpenRouter 的額度與費用。
+> 跨平台（Windows / macOS）桌面小工具，即時監控 OpenAI、Claude、GitHub Copilot、OpenRouter 的額度與費用。
+> 支援兩種資料來源：**Tampermonkey 瀏覽器腳本**（傳統模式）與 **WebView 內嵌瀏覽器**（v4.5 新增，無需開啟外部瀏覽器）。
 
 <div align="center">
   <img src="PICS/2026-05-09%2015%2040%2018.jpg" alt="桌面小工具完整畫面" width="300">
@@ -12,7 +13,8 @@
 
 - **翻頁時鐘**：動畫翻頁效果顯示目前時間，常駐桌面不遮擋視窗
 - **5 個服務卡片**：Claude.ai、GitHub Copilot、OpenAI、Claude API、OpenRouter
-- **即時同步**：開啟對應網頁，Tampermonkey 腳本自動擷取並推送至小工具
+- **WebView 模式**（v4.5 新增）：內嵌瀏覽器自動登入並擷取資料，無需開啟外部瀏覽器
+- **即時同步**：Tampermonkey 腳本自動擷取並推送至小工具（傳統模式）
 - **一鍵開啟**：右鍵選單可一鍵開啟所有監控頁面（支援 Chrome / Firefox）
 - **透明度調整**：可設定視窗透明度（0.3 ~ 1.0），融入桌面背景
 - **位置記憶**：拖曳位置自動儲存，支援多螢幕（含負座標）
@@ -111,7 +113,9 @@ pip3.11 install -r requirements.txt
 
 | 版本 | 檔案 | 說明 | 狀態 |
 |------|------|------|------|
-| **v4.4.7（推薦）** | `ai-monitor-client-v4.4.js` | v4.4.6 + 修復 Claude.ai hash 導航不觸發 Usage API：偵測 `?oclaw=1` 無 hash 時自動設定 hash 並 reload，確保 SPA 全新掛載 | ✅ 目前維護 |
+| **v4.4.7（推薦）** | `ai-monitor-client-v4.4.js` | 修復 Claude.ai hash 導航不觸發 Usage API，`?oclaw=1` 自動設定 hash 並 reload | ✅ 目前維護 |
+
+> 💡 **v4.5 新增 WebView 模式**：不需安裝 Tampermonkey 腳本，透過內嵌瀏覽器自動擷取。詳見下方「WebView 模式」說明。
 
 ---
 
@@ -140,6 +144,33 @@ pip3.11 install -r requirements.txt
 | 🟢 綠色 | 資料已成功推送至桌面程式 |
 | 🔴 紅色 | 發生錯誤 |
 | ⚪ 白色 | 無回應（桌面程式未執行） |
+
+---
+
+## 🌐 WebView 模式（v4.5 新增）
+
+不需開啟外部瀏覽器，桌面小工具內建 WebView 自動擷取資料。
+
+### 啟用方式
+
+1. 安裝 pywebview：`pip install pywebview`
+2. 右鍵 > **⚙ 模式設定** → 選擇 `webview`（或 `both` 同時使用兩種來源）
+3. 首次使用需登入各服務：右鍵 > **WebView** > 選擇服務 > **🔑 開啟登入視窗**
+4. 登入完成後點選 **✓ 完成登入（隱藏視窗）**，小工具自動開始擷取資料
+
+### 資料模式說明
+
+| 模式 | 說明 |
+|------|------|
+| `system` | 傳統 Tampermonkey 模式（預設） |
+| `webview` | 內嵌 WebView，自動背景擷取 |
+| `both` | 同時使用兩種來源（任一有資料即更新） |
+
+### 注意事項
+
+- Windows 需要 Edge WebView2（Windows 11 內建）
+- Google 帳號登入在 WebView 中受限（Google 政策），請改用 Email 登入
+- 登入 Session 會保留，重新開啟程式後無需再次登入
 
 ---
 
@@ -333,7 +364,12 @@ ai-quota-monitor/
 ├── services/
 │   ├── base.py                  # BaseService、ServiceResult
 │   ├── browser_data.py          # 從 local_server 讀取瀏覽器資料
-│   └── local_server.py          # HTTP 伺服器（/update、/poll、/status）
+│   ├── local_server.py          # HTTP 伺服器（/update、/poll、/status）
+│   ├── webview_fetcher.py       # WebView 子程序管理（v4.5）
+│   ├── webview_worker.py        # WebView 子程序主程式（v4.5）
+│   └── webview_bridge.py        # WebView JS Bridge（v4.5）
+├── assets/
+│   └── ai-monitor-webview.js    # WebView 注入腳本（v4.5）
 └── config/
     └── manager.py               # 設定讀寫
 ```

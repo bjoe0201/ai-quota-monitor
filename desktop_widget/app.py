@@ -32,6 +32,7 @@ from services.browser_data import (
 )
 from services import local_server
 from services.base import ServiceResult
+from services.webview_fetcher import WebviewFetcher
 
 from desktop_widget.clock import DigitalClock
 from desktop_widget.cards import CompactServiceCard
@@ -65,7 +66,7 @@ SERVICE_NAMES = {
     "browser_openrouter":     "OpenRouter (瀏覽器)",
 }
 
-_WIDGET_VERSION = "v4.4.7"
+_WIDGET_VERSION = "v4.5.0"
 
 _PAGE_URLS = [
     ("OpenAI 帳單",     "https://platform.openai.com/settings/organization/billing/overview?oclaw=1"),
@@ -381,6 +382,10 @@ class DesktopWidget(tk.Tk):
         port = self.config_data.get("server_port", 7890)
         local_server.start(port)
 
+        # WebView fetcher（僅在 webview/both 模式下啟動）
+        self._webview_fetcher: WebviewFetcher | None = None
+        self._init_webview_if_needed()
+
         self._setup_window()
         self._build_ui()
         self._position_window()
@@ -650,9 +655,38 @@ class DesktopWidget(tk.Tk):
         ff_menu.add_command(label="  ✕  一鍵關閉所有網頁",
                             command=_close_oflaw_window)
         menu.add_cascade(label="  Firefox ▶", menu=ff_menu)
+        # WebView 模式快捷
+        mode = self.config_data.get("browser", {}).get("mode", "system")
+        if mode in ("webview", "both"):
+            menu.add_separator()
+            menu.add_command(label="  🔲 WebView 立即刷新", command=self._webview_refresh_all)
+            from services.webview_fetcher import WEBVIEW_SERVICES
+            wv_label_map = {
+                "openai_billing":  "OpenAI 帳單",
+                "claude_usage":    "Claude.ai 用量",
+                "claude_billing":  "Claude API 帳單",
+                "github_copilot":  "GitHub Copilot",
+                "openrouter":      "OpenRouter",
+            }
+            wv_menu = tk.Menu(menu, tearoff=0, **sub_kw)
+            for key in WEBVIEW_SERVICES:
+                label = wv_label_map.get(key, key)
+                svc_menu = tk.Menu(wv_menu, tearoff=0, **sub_kw)
+                svc_menu.add_command(
+                    label=f"  🔑 開啟登入視窗",
+                    command=lambda k=key: self._webview_show_login(k),
+                )
+                svc_menu.add_command(
+                    label=f"  ✓ 完成登入（隱藏視窗）",
+                    command=lambda k=key: self._webview_login_done(k),
+                )
+                wv_menu.add_cascade(label=f"  {label} ▶", menu=svc_menu)
+            menu.add_cascade(label="  🔲 WebView 登入 ▶", menu=wv_menu)
+
         menu.add_separator()
         menu.add_command(label="  🖥 開啟主視窗", command=self._open_main_window)
         menu.add_command(label="  ⚙ 透明度設定", command=self._opacity_dialog)
+        menu.add_command(label="  ⚙ 模式設定", command=self._mode_dialog)
         menu.add_separator()
         menu.add_command(label="  ✕ 離開", command=self.quit_app)
 
@@ -666,6 +700,28 @@ class DesktopWidget(tk.Tk):
             menu.grab_release()
             if sys.platform == "darwin":
                 self.wm_overrideredirect(True)
+
+    def _init_webview_if_needed(self) -> None:
+        mode = self.config_data.get("browser", {}).get("mode", "system")
+        if mode not in ("webview", "both"):
+            return
+        if self._webview_fetcher and self._webview_fetcher.is_running:
+            return
+        port = self.config_data.get("server_port", 7890)
+        fetcher = WebviewFetcher()
+        fetcher.start(port=port)
+        self._webview_fetcher = fetcher
+        refresh_mins = self.config_data.get("browser", {}).get("webview_auto_refresh_minutes", 5)
+        def _delayed_start():
+            if fetcher.wait_ready(timeout=30):
+                fetcher.refresh_all()
+                fetcher.set_auto_refresh(refresh_mins)
+        threading.Thread(target=_delayed_start, daemon=True, name="webview-init").start()
+
+    def _stop_webview(self) -> None:
+        if self._webview_fetcher:
+            self._webview_fetcher.stop()
+            self._webview_fetcher = None
 
     def _open_all_pages(self):
         _open_all_in_new_window()
@@ -682,6 +738,21 @@ class DesktopWidget(tk.Tk):
 
     def _opacity_dialog(self):
         OpacityDialog(self, self.config_manager, self.config_data)
+
+    def _mode_dialog(self):
+        ModeDialog(self, self.config_manager, self.config_data)
+
+    def _webview_refresh_all(self) -> None:
+        if self._webview_fetcher:
+            self._webview_fetcher.refresh_all()
+
+    def _webview_show_login(self, key: str) -> None:
+        if self._webview_fetcher:
+            self._webview_fetcher.show_login(key)
+
+    def _webview_login_done(self, key: str = "") -> None:
+        if self._webview_fetcher:
+            self._webview_fetcher.login_done(key)
 
     # ── 資料輪詢（複用 gui/app.py 的邏輯）───────────────────────────────
 
@@ -823,6 +894,7 @@ class DesktopWidget(tk.Tk):
     def quit_app(self):
         _close_oclaw_window()
         _close_oflaw_window()
+        self._stop_webview()
         self._save_position()
         local_server.stop()
         self.destroy()
@@ -892,3 +964,100 @@ class OpacityDialog(tk.Toplevel):
         wc["opacity"] = v
         self._cm.save()
         self.destroy()
+
+
+# ── 模式設定對話框 ──────────────────────────────────────────────────────────────
+
+class ModeDialog(tk.Toplevel):
+    """資料來源模式設定：system / webview / both。"""
+
+    def __init__(self, parent: DesktopWidget, config_manager, config_data):
+        super().__init__(parent)
+        self._parent = parent
+        self._cm = config_manager
+        self._data = config_data
+
+        self.title("模式設定")
+        self.configure(bg=COLORS["bg"])
+        self.resizable(False, False)
+        self.wm_attributes("-topmost", True)
+        self.grab_set()
+
+        self.update_idletasks()
+        px, py = parent.winfo_x(), parent.winfo_y()
+        self.geometry(f"340x240+{px + 30}+{py + 30}")
+
+        self._build()
+
+    def _build(self):
+        tk.Label(
+            self, text="資料來源模式",
+            fg=COLORS["text"], bg=COLORS["bg"],
+            font=("Segoe UI", 9, "bold"), pady=8,
+        ).pack()
+
+        browser_cfg = self._data.get("browser", {})
+        self._mode_var = tk.StringVar(value=browser_cfg.get("mode", "system"))
+        self._refresh_var = tk.IntVar(value=browser_cfg.get("webview_auto_refresh_minutes", 5))
+
+        mode_frame = tk.Frame(self, bg=COLORS["bg"], padx=16)
+        mode_frame.pack(fill="x")
+        for val, label in [
+            ("system",  "系統瀏覽器 Chrome/Firefox（需 Tampermonkey）"),
+            ("webview", "內嵌 WebView（背景靜默，無需 Tampermonkey）"),
+            ("both",    "兩者同時執行"),
+        ]:
+            tk.Radiobutton(
+                mode_frame, text=label,
+                variable=self._mode_var, value=val,
+                fg=COLORS["text"], bg=COLORS["bg"],
+                selectcolor=COLORS["card_bg"],
+                activebackground=COLORS["bg"], activeforeground=COLORS["text"],
+                font=("Segoe UI", 8),
+            ).pack(anchor="w")
+
+        tk.Label(
+            self, text="WebView 自動刷新（分鐘）",
+            fg=COLORS["subtext"], bg=COLORS["bg"],
+            font=("Segoe UI", 8), pady=(4,),
+        ).pack(anchor="w", padx=16)
+
+        rf_row = tk.Frame(self, bg=COLORS["bg"], padx=16)
+        rf_row.pack(anchor="w")
+        for mins in [3, 5, 10, 30]:
+            tk.Radiobutton(
+                rf_row, text=f"{mins}分",
+                variable=self._refresh_var, value=mins,
+                fg=COLORS["text"], bg=COLORS["bg"],
+                selectcolor=COLORS["card_bg"],
+                activebackground=COLORS["bg"], activeforeground=COLORS["text"],
+                font=("Segoe UI", 8),
+            ).pack(side="left", padx=3)
+
+        btn_row = tk.Frame(self, bg=COLORS["bg"])
+        btn_row.pack(pady=10)
+        tk.Button(
+            btn_row, text="確定", command=self._apply,
+            bg=COLORS["success"], fg=COLORS["bg"],
+            relief="flat", padx=16, pady=4,
+        ).pack(side="left", padx=4)
+        tk.Button(
+            btn_row, text="取消", command=self.destroy,
+            bg=COLORS["card_border"], fg=COLORS["text"],
+            relief="flat", padx=16, pady=4,
+        ).pack(side="left", padx=4)
+
+    def _apply(self):
+        cfg = self._data.setdefault("browser", {})
+        new_mode = self._mode_var.get()
+        cfg["mode"] = new_mode
+        cfg["webview_auto_refresh_minutes"] = self._refresh_var.get()
+        self._cm.save()
+        self.destroy()
+
+        # Restart/stop webview fetcher on parent
+        if new_mode in ("webview", "both"):
+            self._parent._stop_webview()
+            self._parent._init_webview_if_needed()
+        else:
+            self._parent._stop_webview()

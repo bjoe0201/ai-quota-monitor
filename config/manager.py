@@ -11,6 +11,10 @@ DEFAULT_CONFIG = {
     "auto_refresh_minutes": 30,
     "server_port": 7890,
     "density": "comfortable",
+    "browser": {
+        "mode": "system",                   # "system" | "webview" | "both"
+        "webview_auto_refresh_minutes": 5,
+    },
     "widget": {
         "x": -32768,
         "y": -32768,
@@ -107,6 +111,8 @@ class ConfigManager:
         config["auto_refresh_minutes"] = data.get("auto_refresh_minutes", 30)
         config["server_port"] = data.get("server_port", 7890)
         config["density"] = data.get("density", "comfortable")
+        if "browser" in data:
+            config["browser"].update(data["browser"])
         if "widget" in data:
             config["widget"].update(data["widget"])
         for svc_key in DEFAULT_CONFIG["services"]:

@@ -8,7 +8,9 @@ a = Analysis(
     ['widget_main.py'],
     pathex=['.'],
     binaries=[],
-    datas=[],
+    datas=[
+        ('assets/ai-monitor-webview.js', 'assets'),
+    ],
     hiddenimports=[
         'tkinter',
         'tkinter.ttk',
@@ -20,6 +22,8 @@ a = Analysis(
         'services.local_server',
         'services.browser_data',
         'services.base',
+        'services.webview_bridge',
+        'services.webview_fetcher',
         'config.manager',
         'gui.widgets',
         'desktop_widget.app',
@@ -27,6 +31,12 @@ a = Analysis(
         'desktop_widget.cards',
         'desktop_widget.tray',
         'desktop_widget.styles',
+        # pywebview backends
+        'webview',
+        'webview.platforms.winforms',
+        'webview.platforms.cocoa',
+        'webview.platforms.gtk',
+        'clr',
     ],
     hookspath=[],
     hooksconfig={},
@@ -82,7 +92,7 @@ if sys.platform == 'darwin':
         bundle_identifier='com.aimonitor.widget',
         info_plist={
             'NSHighResolutionCapable': True,
-            'CFBundleShortVersionString': '1.8.2',
+            'CFBundleShortVersionString': '4.5.0',
             'LSUIElement': False,
         },
     )

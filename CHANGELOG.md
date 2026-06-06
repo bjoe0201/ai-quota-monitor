@@ -11,6 +11,28 @@
 
 ---
 
+## [4.5.0] - 2026-06-07
+
+### Added
+- **WebView 內嵌瀏覽器模式**（全新功能）：新增 `services/webview_worker.py`、`services/webview_fetcher.py`、`services/webview_bridge.py`、`assets/ai-monitor-webview.js`
+  - 不需開啟外部瀏覽器即可自動擷取各服務資料
+  - 每個服務擁有獨立的 pywebview 視窗，互不干擾
+  - 支援登入視窗（每次開啟均建立全新 WebView，解決 WebView2 hide/show 不可靠問題）
+  - WebView 子程序架構（主程序 tkinter 執行緒與 WebView2 主執行緒分離）
+  - Google SSO 封鎖偵測：自動顯示提示橫幅並退回 Email 登入頁
+  - 資料模式設定：`system`（Tampermonkey）/ `webview`（內嵌）/ `both`（同時）
+  - GitHub Copilot 同時載入 `copilot/features` + `billing/budgets` 兩個頁面（與 Android 版一致）
+- `config/manager.py`：新增 `browser` 設定區塊（`mode`、`webview_auto_refresh_minutes`）
+- `gui/app.py`：新增 WebView 模式初始化、登入選單、設定頁籤
+- `desktop_widget/app.py`：新增 WebView 模式切換（`ModeDialog`）、右鍵登入子選單
+- `requirements.txt`：新增 `pywebview>=5.0.6`
+
+### Fixed
+- WebView 登入視窗關閉後無法再次開啟：改為每次 `show_login()` 都 destroy + recreate 視窗
+- `webview.expose()` 模組層級函式不存在（pywebview 5+）：改用 `js_api=` 參數傳入 `create_window()`
+
+---
+
 ## [4.4.7] - 2026-06-06
 
 ### Fixed
