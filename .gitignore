@@ -21,9 +21,8 @@ data_log.json
 # Claude Code project settings (may contain local paths)
 .claude/
 
-# PLANS screenshots (contain personal usage data)
-PLANS/*.jpg
-PLANS/*.png
+# PLANS — internal development drafts, not for public repo
+PLANS/
 
 # Environment
 .env
