@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         AI Quota Monitor Client v4.4
 // @namespace    https://github.com/ai-quota-monitor
-// @version      4.4.5
+// @version      4.4.7
 // @description  v4.1 + OpenRouter 支援（API 攔截版，零 DOM 依賴）
 // @author       AI Quota Monitor
-// @updated      2026-06-05 — onDomReady 在 /new 聊天頁安裝 SPA 偵測待命（v4.4.5）
+// @updated      2026-06-06 — /new?oclaw=1 偵測：設定 hash 後 reload，確保 SPA 全新掛載觸發 Usage API（v4.4.7）
 // @match        https://platform.openai.com/settings/organization/billing/overview*
+// @match        https://claude.ai/
 // @match        https://claude.ai/settings/usage*
 // @match        https://claude.ai/new*
 // @match        https://platform.claude.com/settings/billing*
@@ -106,7 +107,7 @@
     let domParseSuccess = false;
     const MERGE_WINDOW = 2000; // 2 秒合併視窗
 
-    const LOG_PREFIX = '[AI Monitor v4.4.5]';
+    const LOG_PREFIX = '[AI Monitor v4.4.7]';
 
     // ─────────────────────────────────────────────
     //  DEBUG LOGGER
@@ -1130,7 +1131,7 @@
             'user-select:none',
         ].join(';');
         _dot.textContent = '⚡';
-        _dot.title = PAGE.label + ' v4.4.5 — 攔截模式\n點擊重新載入頁面';
+        _dot.title = PAGE.label + ' v4.4.7 — 攔截模式\n點擊重新載入頁面';
         _dot.addEventListener('click', () => {
             location.reload();
         });
@@ -1267,7 +1268,7 @@
     // ─────────────────────────────────────────────
 
     // Phase 1: 在 document-start 立刻安裝 hook（此時 DOM 未就緒）
-    dbg('=== AI Quota Monitor v4.4.5 啟動 ===');
+    dbg('=== AI Quota Monitor v4.4.7 啟動 ===');
     dbg('頁面:', PAGE.label, '(' + PAGE.key + ')');
     dbg('規則數:', activeRules.length);
 
@@ -1277,6 +1278,21 @@
 
     // Phase 2: DOM Ready 後建立 UI 與生命週期
     function onDomReady() {
+        // ── Claude.ai oclaw 觸發導航 ────────────────────────────────────────
+        // Python APP 開啟 /new?oclaw=1（不含 #settings/usage hash）時：
+        // 先設定 hash，再 reload → 瀏覽器以 /new?oclaw=1#settings/usage 全新載入，
+        // SPA 從 #settings/usage 路由初始化，Usage 組件掛載時才會呼叫 Usage API。
+        // （單純改 hash 不會重新掛載組件，必須配合 reload。）
+        if (PAGE.key === 'claude_usage' &&
+            location.pathname === '/new' &&
+            location.search.includes('oclaw=1') &&
+            !location.hash.includes('settings/usage')) {
+            dbg('🔄 /new?oclaw=1 無 #settings/usage → 設定 hash 並 reload');
+            location.hash = '#settings/usage';
+            location.reload();
+            return;
+        }
+
         if (!isOnExpectedPage()) {
             // 在 /new 聊天主頁但 hash 不符（APP 保持 /new 分頁，等使用者導航過去）
             // 仍需裝 SPA 偵測，以便使用者切換到 #settings/usage 時補建 UI

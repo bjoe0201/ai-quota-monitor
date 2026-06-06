@@ -111,7 +111,7 @@ pip3.11 install -r requirements.txt
 
 | 版本 | 檔案 | 說明 | 狀態 |
 |------|------|------|------|
-| **v4.4.3（推薦）** | `ai-monitor-client-v4.4.js` | v4.4.2 + 相容 claude.ai 新路由 `/new#settings/usage`，修復腳本干擾聊天主頁問題 | ✅ 目前維護 |
+| **v4.4.7（推薦）** | `ai-monitor-client-v4.4.js` | v4.4.6 + 修復 Claude.ai hash 導航不觸發 Usage API：偵測 `?oclaw=1` 無 hash 時自動設定 hash 並 reload，確保 SPA 全新掛載 | ✅ 目前維護 |
 
 ---
 

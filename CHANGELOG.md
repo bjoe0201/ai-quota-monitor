@@ -11,6 +11,21 @@
 
 ---
 
+## [4.4.7] - 2026-06-06
+
+### Fixed
+- `ai-monitor-client-v4.4.js`：修復 Claude.ai Usage 頁面 hash 導航不觸發 API 問題（v4.4.7）
+  - 根本原因：單純改 `location.hash` 屬於 SPA client-side 路由，不重新掛載 React 組件，故 Usage API 不會被呼叫
+  - 修正：Python APP 開啟 `claude.ai/new?oclaw=1`（不含 hash），腳本偵測到無 `#settings/usage` 時先設定 `location.hash`，再立即 `location.reload()`，使瀏覽器以完整 URL `claude.ai/new?oclaw=1#settings/usage` 全新載入，SPA 從 `#settings/usage` 路由初始化，Usage 組件掛載時呼叫 API ✅
+  - 移除 v4.4.6 的 sessionStorage 兩步驟暖機（導至 `/` 再跳回），改為更簡潔的 hash + reload 方式
+- `gui/app.py`、`desktop_widget/app.py`：Claude.ai URL 移除 `#settings/usage` hash（改由 JS 腳本控制）
+
+### Changed
+- `ai-monitor-client-v4.4.js`：新增 `@match https://claude.ai/`（v4.4.6 起，保留至本版）
+- 版號更新：`gui/app.py` v4.4.5 → v4.4.7；`desktop_widget/app.py` v4.4.5 → v4.4.7
+
+---
+
 ## [4.4.5] - 2026-06-05
 
 ### Fixed
